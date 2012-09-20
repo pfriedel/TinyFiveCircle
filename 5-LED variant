@@ -1,0 +1,28 @@
+(note: 'in' is the LED's input, not what the MCU sees as the input.  i.e. LED 1
+is sourced by pin 7 and sunk by pins 2, 6 and 5.)
+
+So far I can get 5 LEDs off of the 5 pins - I really end up needing a dedicated
+anode/cathode pin per LED, unfortunately.  That means the (theoretical) 6th LED
+is unfeasible unless if I get a HVSP and use RSTDISBL to change RESET into PB5.
+Feh.
+
+Easiest layout (tested)
+in out - led color
+ 7   2 - 1   r
+ 7   6 - 1   g
+ 7   5 - 1   b
+ 6   7 - 2   r
+ 6   5 - 2   g
+ 6   3 - 2   b
+ 5   6 - 3   r
+ 5   3 - 3   g
+ 5   2 - 3   b
+ 3   5 - 4   r
+ 3   2 - 4   g
+ 3   7 - 4   b
+ 2   3 - 5   r
+ 2   7 - 5   g
+ 2   6 - 5   b
+
+If you work it out, that lays out on a circuit board on one side without any
+crossing.  You could conceivably do this board single-sided with 1 air wire.

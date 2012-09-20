@@ -1,0 +1,15 @@
+Requirements:
+
+1) 5 RGB LEDs - I'm using common anode, but it'll work with common cathode.
+   Just differently.  You'll have to map out the pins and colors differently.
+
+2) ATtiny85
+
+3) PCB from OSHpark.  I'm working on a kit.
+
+BOM: (prices are volatile)
+
+1x MCU: http://www.dipmicro.com/store/ATTINY85-20PU ($1.56)
+4x 10mm RGB Common Anode LEDs: http://www.dipmicro.com/store/LED10AD ($2)
+1x 3xAA Battery holder: http://www.dipmicro.com/store/BH2465 ($3.21)
+4x resistors - mine are 1ohm! But 47 is probably more reasonable
