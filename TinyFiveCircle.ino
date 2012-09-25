@@ -26,11 +26,7 @@
 #define medium_run 240 // 4 hours
 #define long_run 480 // 8 hours
 
-//volatile byte last_mode;
-
 byte __attribute__ ((section (".noinit"))) last_mode;
-
-//#define F_CPU 16000000UL
 
 uint8_t led_grid[15] = {
   000 , 000 , 000 , 000 , 000 , // R
@@ -40,13 +36,12 @@ uint8_t led_grid[15] = {
 
 
 void setup() {
-
-  if(bit_is_set(MCUSR, PORF)) {
-    MCUSR = 0;
-    last_mode = 0; // power on!
+  if(bit_is_set(MCUSR, PORF)) { // Power was just established!
+    MCUSR = 0; // clear MCUSR
+    EEReadSettings(); // read the last mode out of eeprom
   } 
-  else if(bit_is_set(MCUSR, EXTRF)) {
-    MCUSR = 0;
+  else if(bit_is_set(MCUSR, EXTRF)) { // we're coming out of a reset condition.
+    MCUSR = 0; // clear MCUSR
     last_mode++; // advance mode
 
     if(last_mode > MAX_MODE) {
@@ -54,34 +49,27 @@ void setup() {
     }
   }
 
-// Try and set the random seed more randomly.  Alternate solutions involve using the eeprom and writing the last seed there.
+  // Try and set the random seed more randomly.  Alternate solutions involve
+  // using the eeprom and writing the last seed there.
   uint16_t seed=0;
   uint8_t count=32;
   while (--count) {
     seed = (seed<<1) | (analogRead(1)&1);
   }
   randomSeed(seed);
-
-//  // Read the last mode out of the eeprom.
-//  EEReadSettings();
-//  last_mode++;
-//  if(last_mode > MAX_MODE) {
-//    last_mode = 0;
-//  }
-//
-//  // save whichever mode we're using now back to eeprom.
-//  EESaveSettings();
 }
 
 void loop() {
   // indicate which mode we're entering
   light_led(last_mode);
-  delay(500);
+  delay(1000);
   leds_off();
   delay(250);
 
-  // and go into the modes
+  // If EXTRF hasn't been asserted yet, save the mode
+  EESaveSettings();
 
+  // go into the modes
   switch(last_mode) {
   case 0:
     // random colors on random LEDs.
@@ -145,9 +133,6 @@ void SleepNow(void) {
   digitalWrite(1, HIGH);
   digitalWrite(3, HIGH);
   digitalWrite(4, HIGH);
-
-  // attempt to re-enter the same mode that was running before I reset.
-  //  last_mode--;
 
   // mode is type byte, so when it rolls below 0, it will become a Very
   // Large Number compared to MAX_MODE.  Set it to MAX_MODE and the setup
