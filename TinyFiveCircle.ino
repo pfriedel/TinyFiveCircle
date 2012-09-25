@@ -26,7 +26,9 @@
 #define medium_run 240 // 4 hours
 #define long_run 480 // 8 hours
 
-byte last_mode;
+//volatile byte last_mode;
+
+byte __attribute__ ((section (".noinit"))) last_mode;
 
 //#define F_CPU 16000000UL
 
@@ -38,33 +40,19 @@ uint8_t led_grid[15] = {
 
 
 void setup() {
-  light_led(MCUSR);
-  delay(250);
-  leds_off();
 
-  if(MCUSR & 1) {
-    MCUSR = 0x00;
-    last_mode = 0;
-  }
-  if (MCUSR & 2) {
-    MCUSR = 0x00;
+  if(bit_is_set(MCUSR, PORF)) {
+    MCUSR = 0;
+    last_mode = 0; // power on!
+  } 
+  else if(bit_is_set(MCUSR, EXTRF)) {
+    MCUSR = 0;
+    last_mode++; // advance mode
 
-    last_mode++;
     if(last_mode > MAX_MODE) {
-      last_mode = 0;
+      last_mode = 0; // reset mode
     }
   }
-
-//  if(bit_is_set(MCUSR, PORF)) {
-//    last_mode = 0; // power on!
-//  } else if(bit_is_set(MCUSR, EXTRF)) {
-//    last_mode++; // advance mode
-//    if(last_mode >= MAX_MODE) {
-//      last_mode = 0; // reset mode
-//    }
-//  }
-//
-//  MCUSR = 0; // reset bits
 
 // Try and set the random seed more randomly.  Alternate solutions involve using the eeprom and writing the last seed there.
   uint16_t seed=0;
@@ -159,9 +147,9 @@ void SleepNow(void) {
   digitalWrite(4, HIGH);
 
   // attempt to re-enter the same mode that was running before I reset.
-  last_mode--;
+  //  last_mode--;
 
-  // last_mode is type byte, so when it rolls below 0, it will become a Very
+  // mode is type byte, so when it rolls below 0, it will become a Very
   // Large Number compared to MAX_MODE.  Set it to MAX_MODE and the setup
   // routine will jump it up and down by one.
   if(last_mode > MAX_MODE) { last_mode = MAX_MODE; }
