@@ -36,8 +36,37 @@ uint8_t led_grid[15] = {
   000 , 000 , 000 , 000 , 000  // B
 };
 
+
 void setup() {
-  // Try and set the random seed more randomly.  Alternate solutions involve using the eeprom and writing the last seed there.
+  light_led(MCUSR);
+  delay(250);
+  leds_off();
+
+  if(MCUSR & 1) {
+    MCUSR = 0x00;
+    last_mode = 0;
+  }
+  if (MCUSR & 2) {
+    MCUSR = 0x00;
+
+    last_mode++;
+    if(last_mode > MAX_MODE) {
+      last_mode = 0;
+    }
+  }
+
+//  if(bit_is_set(MCUSR, PORF)) {
+//    last_mode = 0; // power on!
+//  } else if(bit_is_set(MCUSR, EXTRF)) {
+//    last_mode++; // advance mode
+//    if(last_mode >= MAX_MODE) {
+//      last_mode = 0; // reset mode
+//    }
+//  }
+//
+//  MCUSR = 0; // reset bits
+
+// Try and set the random seed more randomly.  Alternate solutions involve using the eeprom and writing the last seed there.
   uint16_t seed=0;
   uint8_t count=32;
   while (--count) {
@@ -45,15 +74,15 @@ void setup() {
   }
   randomSeed(seed);
 
-  // Read the last mode out of the eeprom.
-  EEReadSettings();
-  last_mode++;
-  if(last_mode > MAX_MODE) {
-    last_mode = 0;
-  }
-
-  // save whichever mode we're using now back to eeprom.
-  EESaveSettings();
+//  // Read the last mode out of the eeprom.
+//  EEReadSettings();
+//  last_mode++;
+//  if(last_mode > MAX_MODE) {
+//    last_mode = 0;
+//  }
+//
+//  // save whichever mode we're using now back to eeprom.
+//  EESaveSettings();
 }
 
 void loop() {
