@@ -140,6 +140,8 @@ void SleepNow(void) {
   digitalWrite(4, HIGH);
 
   // decrement last_mode, so the EXTRF increment sets it back to where it was.
+  // note: this actually doesn't work that great in cases where power is removed after the MCU goes to sleep.
+  // On the other hand, that's an edge condition that I'm not going to worry about too much.
   last_mode--;
 
   // mode is type byte, so when it rolls below 0, it will become a Very
