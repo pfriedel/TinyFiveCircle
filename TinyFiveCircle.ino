@@ -26,6 +26,11 @@
 #define medium_run 240 // 4 hours
 #define long_run 480 // 8 hours
 
+// integer HSV to RGB calculation
+#define MAX_HUE 764
+#define MAX_SAT 127
+#define MAX_BRI 255
+
 byte __attribute__ ((section (".noinit"))) last_mode;
 
 uint8_t led_grid[15] = {
@@ -159,7 +164,7 @@ void SleepNow(void) {
   
 void RandomColorRandomPosition(uint16_t time) {
   while(1) {
-    setLedColorHSV(random(5),random(360), 1, 1);
+    setLedColorHSV(random(5),random(MAX_HUE), MAX_SAT, MAX_BRI);
     draw_for_time(1000);
     if(millis() >= time*time_multiplier) { SleepNow(); }
   }
@@ -169,10 +174,10 @@ void HueWalk(uint16_t time) {
   //  uint8_t width = random(16,20);
   uint8_t width = 5;
   while(1) {
-    for(uint16_t colorshift=0; colorshift<360; colorshift++) {
+    for(uint16_t colorshift=0; colorshift<MAX_HUE; colorshift++) {
       for(uint8_t led = 0; led<5; led++) {
-	uint16_t hue = ((led) * 360/(width)+colorshift)%360;
-	setLedColorHSV(led,hue,1,1);
+	uint16_t hue = ((led) * MAX_HUE/(width)+colorshift)%MAX_HUE;
+	setLedColorHSV(led,hue,MAX_SAT,MAX_BRI);
 	draw_for_time(1);
 	if(millis() >= time*time_multiplier) { SleepNow(); }
       }
@@ -183,18 +188,17 @@ void HueWalk(uint16_t time) {
 void BrightnessWalk(uint16_t time) {
   uint16_t hue = random(360); // initial color
   uint8_t led_val[5] = {1,9,17,25,33}; // some initial distances
-  bool led_dir[5] = {1,1,1,1}; // everything is initially going towards higher brightnesses
   bool led_dir[5] = {1,1,1,1,1}; // everything is initially going towards higher brightnesses
   while(1) {
     for(uint8_t led = 0; led<5; led++) {
       if(millis() >= time*time_multiplier) { SleepNow(); }
-      setLedColorHSV(led,hue,1,led_val[led]*.01);
-      draw_for_time(DRAW_TIME);
+      setLedColorHSV(led,hue,MAX_SAT,led_val[led]);
+      draw_for_time(1);
       // if the current value for the current LED is about to exceed the top or the bottom, invert that LED's direction
-      if((led_val[led] >= 99) or (led_val[led] <= 0)) { 
+      if((led_val[led] >= 254) or (led_val[led] <= 0)) { 
 	led_dir[led] = !led_dir[led]; 
 	hue++; // actually increments hue by the number of LEDs (4) as each LED goes through 99 or 0, but 360 is a loooong way from here.
-	if(hue >= 360) { 
+	if(hue >= MAX_HUE) { 
 	  hue = 0;
 	}
       }
@@ -233,60 +237,51 @@ void PrimaryColors(uint16_t time) {
   }
 }
 
+// from http://mbed.org/forum/mbed/topic/1251/?page=1#comment-6216
+//4056 bytes on this version.
+/*-------8-Bit-PWM-|-Light-Emission-normalized------
+hue: 0 to 764
+sat: 0 to 128 (0 to 127 with small inaccuracy)
+bri: 0 to 255
+all variables int16_t
+*/
+void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t bri) {
+  int16_t red_val, green_val, blue_val;
 
-// to-do: Convert this to integer mode.
-void setLedColorHSV(uint8_t p, uint16_t h, float s, float v) {
-  // Lightly adapted from http://eduardofv.com/read_post/179-Arduino-RGB-LED-HSV-Color-Wheel-
-  //this is the algorithm to convert from HSV to RGB
-  float r=0; 
-  float g=0; 
-  float b=0;
+  // manage the case where I set to floating calculations but don't change the
+  // routine.
+  if(MAX_HUE == 360) {
+    hue = map(hue,0,360,0,764);
+  }
 
-  uint8_t i=(int)floor(h/60.0);
-  float f = h/60.0 - i;
-  float pv = v * (1 - s);
-  float qv = v * (1 - s*f);
-  float tv = v * (1 - s * (1 - f));
-
-  switch (i)
-    {
-    case 0: //red
-      r = v;
-      g = tv;
-      b = pv;
-      break;
-    case 1: // green
-      r = qv;
-      g = v;
-      b = pv;
-      break;
-    case 2: 
-      r = pv;
-      g = v;
-      b = tv;
-      break;
-    case 3: // blue
-      r = pv;
-      g = qv;
-      b = v;
-      break;
-    case 4:
-      r = tv;
-      g = pv;
-      b = v;
-      break;
-    case 5: // mostly red (again)
-      r = v;
-      g = pv;
-      b = qv;
-      break;
-    }
-
-  set_led_rgb(p,constrain((int)100*r,0,100),constrain((int)100*g,0,100),constrain((int)100*b,0,100));
+  while (hue > 764) hue -= 765;
+  while (hue < 0) hue += 765;
+  
+  if (hue < 255) {
+    red_val = (10880 - sat * (hue - 170)) >> 7;
+    green_val = (10880 - sat * (85 - hue)) >> 7;
+    blue_val = (10880 - sat * 85) >> 7;
+  }
+  else if (hue < 510) {
+    red_val = (10880 - sat * 85) >> 7;
+    green_val = (10880 - sat * (hue - 425)) >> 7;
+    blue_val = (10880 - sat * (340 - hue)) >> 7;
+  }
+  else {
+    red_val = (10880 - sat * (595 - hue)) >> 7;
+    green_val = (10880 - sat * 85) >> 7;
+    blue_val = (10880 - sat * (hue - 680)) >> 7;
+  }
+  
+  uint16_t red = (uint16_t)((bri + 1) * red_val) >> 8;
+  uint16_t green = (uint16_t)((bri + 1) * green_val) >> 8;
+  uint16_t blue = (uint16_t)((bri + 1) * blue_val) >> 8;
+  
+  set_led_rgb(p,map(red,0,255,0,100),map(green,0,255,0,100),map(blue,0,255,0,100));
 }
 
 /* Args:
-   position - 0-3, bottom to top
+   position - 0-4
    red value - 0-100
    green value - 0-100
    blue value - 0-100
