@@ -184,6 +184,7 @@ void BrightnessWalk(uint16_t time) {
   uint16_t hue = random(360); // initial color
   uint8_t led_val[5] = {1,9,17,25,33}; // some initial distances
   bool led_dir[5] = {1,1,1,1}; // everything is initially going towards higher brightnesses
+  bool led_dir[5] = {1,1,1,1,1}; // everything is initially going towards higher brightnesses
   while(1) {
     for(uint8_t led = 0; led<5; led++) {
       if(millis() >= time*time_multiplier) { SleepNow(); }
