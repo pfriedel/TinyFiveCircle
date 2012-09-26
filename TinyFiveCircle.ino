@@ -134,6 +134,9 @@ void SleepNow(void) {
   digitalWrite(3, HIGH);
   digitalWrite(4, HIGH);
 
+  // decrement last_mode, so the EXTRF increment sets it back to where it was.
+  last_mode--;
+
   // mode is type byte, so when it rolls below 0, it will become a Very
   // Large Number compared to MAX_MODE.  Set it to MAX_MODE and the setup
   // routine will jump it up and down by one.
