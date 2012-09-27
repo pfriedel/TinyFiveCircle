@@ -27,9 +27,45 @@
 #define long_run 480 // 8 hours
 
 // integer HSV to RGB calculation
-#define MAX_HUE 764
-#define MAX_SAT 127
-#define MAX_BRI 255
+//#define MAX_HUE 1529 // non-normalized
+//#define MAX_HUE 764 // normalized
+#define MAX_HUE 360 
+
+/* commentary: 
+
+The _imperfect HSV to RGB code is buggy and shouldn't be use when brightness or
+saturation varies.  It's fine with varying hues, though.  The fact that it
+clings to the ceiling is sort of a feature, not a bug.
+
+Future modes:
+
+1. random color random position - existing mode
+
+2. hue walk at constant brightness - existing mode
+
+3. brightness walk at constant hue - existing mode
+
+4. saturation walk is kind of obnoxious, but might be worth trying now (inverse
+   of #3 - that one goes to black, this would go to white.)
+
+5. "Rain" - start at LED1 with a random color.  Advance color to LED2 and pick a
+   new LED1.  Rotate around the ring.
+
+6. non-equidistant hue walks - instead of 0 72 144 216 288 incrementing,
+   something like...  0 30 130 230 330 rotating around the ring.  The hue += and
+   -= parts might help here?
+
+7. Color morphing: Pick 5 random colors.  Transition from color on LED1 to LED2
+   and around the ring.  Could be seen as a random variant of #2.
+
+8. Larson scanner in primaries - Doable with 5 LEDs? (probably, I've seen
+   larsons with 2 actively lit LEDs in 4 LEDs before.)
+
+9. Pick a color and sweep brightness around the circle (red! 0-100
+   larson-style), then green 0-100, the blue 0-100, getting new color on while
+   old color is fading out.
+
+*/
 
 byte __attribute__ ((section (".noinit"))) last_mode;
 
@@ -38,7 +74,6 @@ uint8_t led_grid[15] = {
   000 , 000 , 000 , 000 , 000 , // G
   000 , 000 , 000 , 000 , 000  // B
 };
-
 
 void setup() {
   if(bit_is_set(MCUSR, PORF)) { // Power was just established!
@@ -126,7 +161,6 @@ void loop() {
 }
 
 void SleepNow(void) {
-  
   // I don't think this matters in my circuit, but it doesn't hurt either - my
   // meter can't actually read the low current mode it goes in to when BOD is
   // disabled.
@@ -166,21 +200,21 @@ void SleepNow(void) {
   
 void RandomColorRandomPosition(uint16_t time) {
   while(1) {
-    setLedColorHSV(random(5),random(MAX_HUE), MAX_SAT, MAX_BRI);
+    setLedColorHSV(random(5),random(MAX_HUE), 255, 255);
     draw_for_time(1000);
     if(millis() >= time*time_multiplier) { SleepNow(); }
   }
 }
 
 void HueWalk(uint16_t time) {
-  //  uint8_t width = random(16,20);
-  uint8_t width = 5;
+  uint8_t width = 20;
+  //  uint8_t width = 5;
   while(1) {
     for(uint16_t colorshift=0; colorshift<MAX_HUE; colorshift++) {
       for(uint8_t led = 0; led<5; led++) {
 	uint16_t hue = ((led) * MAX_HUE/(width)+colorshift)%MAX_HUE;
-	setLedColorHSV(led,hue,MAX_SAT,MAX_BRI);
-	draw_for_time(1);
+	setLedColorHSV_imperfect(led,hue,255,255);
+	draw_for_time(DRAW_TIME);
 	if(millis() >= time*time_multiplier) { SleepNow(); }
       }
     }
@@ -188,27 +222,29 @@ void HueWalk(uint16_t time) {
 }
 
 void BrightnessWalk(uint16_t time) {
-  uint16_t hue = random(360); // initial color
-  uint8_t led_val[5] = {1,9,17,25,33}; // some initial distances
+#define BRT_SCALE 4 // how quickly brightnesses should increment.
+  uint16_t hue = random(MAX_HUE); // initial color
+  uint8_t led_val[5] = {5,13,21,29,37}; // some initial distances
   bool led_dir[5] = {1,1,1,1,1}; // everything is initially going towards higher brightnesses
   while(1) {
+    if(millis() >= time*time_multiplier) { SleepNow(); }
     for(uint8_t led = 0; led<5; led++) {
-      if(millis() >= time*time_multiplier) { SleepNow(); }
-      setLedColorHSV(led,hue,MAX_SAT,led_val[led]);
-      draw_for_time(1);
+      setLedColorHSV(led, hue, 255, led_val[led]);
+      draw_for_time(DRAW_TIME);
+      
       // if the current value for the current LED is about to exceed the top or the bottom, invert that LED's direction
-      if((led_val[led] >= 254) or (led_val[led] <= 0)) { 
-	led_dir[led] = !led_dir[led]; 
-	hue++; // actually increments hue by the number of LEDs (4) as each LED goes through 99 or 0, but 360 is a loooong way from here.
-	if(hue >= MAX_HUE) { 
-	  hue = 0;
-	}
+      if((led_val[led] >= (255-BRT_SCALE)) or (led_val[led] <= (0+BRT_SCALE))) {
+        led_dir[led] = !led_dir[led];
+        hue++; // actually increments hue by the number of LEDs as each LED goes through the ceiling or the floor, but MAX_HUE is a loooong way from here.
+        if(hue >= MAX_HUE) {
+          hue = 0;
+        }
       }
-      if(led_dir[led] == 1) { 
-	led_val[led]++; 
+      if(led_dir[led] == 1) {
+        led_val[led] += BRT_SCALE;
       }
-      else { 
-	led_val[led]--; 
+      else {
+        led_val[led] -= BRT_SCALE;
       }
     }
   }
@@ -239,6 +275,72 @@ void PrimaryColors(uint16_t time) {
   }
 }
 
+
+/* ---------------8-Bit-PWM--------------------------
+hue: 0 to 1529
+sat: 0 to 256 (0 to 255 with small inaccuracy)
+bri: 0 to 255
+all variables uint16_t
+
+This is actually not quite perfect, since it jumps to uint16t in a nonlinear
+fashion, but the errors mostly cancel each other out.  The upshot is that once a
+color channel gets over halfway, it snaps to full brightness and stays there.
+That spoils the color change a bit, but it's sort of a nice looking bug.
+
+That said, it does horrible things when you're slewing around in brightness.
+
+*/
+
+void setLedColorHSV_imperfect(uint8_t p, int16_t hue, int16_t sat, int16_t bri) {
+  int16_t red_val, green_val, blue_val;
+
+  if(MAX_HUE == 360) {
+    hue = map(hue,0,360,0,1529);
+  }
+
+  while (hue > 1529) hue -= 1530;
+  while (hue < 0) hue += 1530;
+  
+  if (hue < 255) {
+    red_val = 255;
+    green_val = (65280 - sat * (255 - hue)) >> 8;
+    blue_val = 255 - sat;
+  }
+  else if (hue < 510) {
+    red_val = (65280 - sat * (hue - 255)) >> 8;
+    green_val = 255;
+    blue_val = 255 - sat;
+  }
+  else if (hue < 765) {
+    red_val = 255 - sat;
+    green_val = 255;
+    blue_val = (65280 - sat * (765 - hue)) >> 8;
+  }
+  else if (hue < 1020) {
+    red_val = 255 - sat;
+    green_val = (65280 - sat * (hue - 765)) >> 8;
+    blue_val = 255;
+  }
+  else if (hue < 1275) {
+    red_val = (65280 - sat * (1275 - hue)) >> 8;
+    green_val = 255 - sat;
+    blue_val = 255;
+  }
+  else {
+    red_val = 255;
+    green_val = 255 - sat;
+    blue_val = (65280 - sat * (hue - 1275)) >> 8;
+  }
+  
+  // ranges from 0-127,65408-65535
+  uint16_t red = ((bri + 1) * red_val) >> 8;
+  uint16_t green = ((bri + 1) * green_val) >> 8;
+  uint16_t blue = ((bri + 1) * blue_val) >> 8;
+
+  set_led_rgb(p,map(red,0,255,0,100),map(green,0,255,0,100),map(blue,0,255,0,100));
+}
+
+
 // from http://mbed.org/forum/mbed/topic/1251/?page=1#comment-6216
 //4056 bytes on this version.
 /*-------8-Bit-PWM-|-Light-Emission-normalized------
@@ -254,6 +356,10 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t bri) {
   // routine.
   if(MAX_HUE == 360) {
     hue = map(hue,0,360,0,764);
+  }
+
+  if(MAX_SAT == 255) {
+    sat = map(sat,0,255,0,128);
   }
 
   while (hue > 764) hue -= 765;
@@ -275,9 +381,9 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t bri) {
     blue_val = (10880 - sat * (hue - 680)) >> 7;
   }
   
-  uint16_t red = (uint16_t)((bri + 1) * red_val) >> 8;
-  uint16_t green = (uint16_t)((bri + 1) * green_val) >> 8;
-  uint16_t blue = (uint16_t)((bri + 1) * blue_val) >> 8;
+  int16_t red = (uint16_t)((bri + 1) * red_val) >> 8;
+  int16_t green = (uint16_t)((bri + 1) * green_val) >> 8;
+  int16_t blue = (uint16_t)((bri + 1) * blue_val) >> 8;
   
   set_led_rgb(p,map(red,0,255,0,100),map(green,0,255,0,100),map(blue,0,255,0,100));
 }
