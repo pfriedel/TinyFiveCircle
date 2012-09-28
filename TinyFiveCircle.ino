@@ -58,10 +58,7 @@ Future modes:
 // How long should it run before going to sleep?
 #define short_run 30
 
-// integer HSV to RGB calculation
-//#define MAX_HUE 1529 // non-normalized
-//#define MAX_HUE 764 // normalized
-#define MAX_HUE 360 
+#define MAX_HUE 764 // normalized
 
 byte __attribute__ ((section (".noinit"))) last_mode;
 
@@ -122,10 +119,10 @@ void loop() {
     // Walk through brightness values across all hues.
     // this walks through brightnesses, slowly shifting hues.
     // 10-14mA depending on which LEDs are lit
-    SB_Walk(short_run,1,1);
+    SBWalk(short_run,1,1);
     break;
   case 3:
-    SB_Walk(short_run,7,1);
+    SBWalk(short_run,14,1);
     break;
   case 4:
     // One LED at a time, PWM up to full brightness and back down again.
@@ -133,10 +130,9 @@ void loop() {
     PrimaryColors(short_run);
     break;
   case 5:
-    SB_Walk(short_run,7,2);
+    SBWalk(short_run,14,2);
     break;
   }
-
 }
 
 void SleepNow(void) {
@@ -168,11 +164,11 @@ void SleepNow(void) {
 void RandomColorRandomPosition(uint16_t time) {
   // preload all the LEDs with a color
   for(int x = 0; x<5; x++) {
-    setLedColorHSV(x,random(MAX_HUE), 255, 255);
+    setLedColorHSV(x,random(MAX_HUE), 128, 255);
   }
   // and start blinking new ones in once a second.
   while(1) {
-    setLedColorHSV(random(5),random(MAX_HUE), 255, 255);
+    setLedColorHSV(random(5),random(MAX_HUE), 128, 255);
     draw_for_time(1000);
     if(millis() >= time*time_multiplier) { SleepNow(); }
   }
@@ -185,8 +181,8 @@ void HueWalk(uint16_t time) {
     for(uint16_t colorshift=0; colorshift<MAX_HUE; colorshift++) {
       for(uint8_t led = 0; led<5; led++) {
 	uint16_t hue = ((led) * MAX_HUE/(width)+colorshift)%MAX_HUE;
-	setLedColorHSV(led,hue,255,255);
-	draw_for_time(3);
+	setLedColorHSV(led,hue,128,255);
+	draw_for_time(2);
 	if(millis() >= time*time_multiplier) { SleepNow(); }
       }
     }
@@ -201,36 +197,44 @@ mode:
   2 = walk through saturations at full brightness.
 1 tends towards colors & black, 2 tends towards colors & white.
 */
-void SB_Walk(uint16_t time, uint8_t jump, uint8_t mode) {
-#define BRT_SCALE 2 // how quickly brightnesses should increment.
+void SBWalk(uint16_t time, uint8_t jump, uint8_t mode) {
+  uint8_t scale_max, delta;
   uint16_t hue = random(MAX_HUE); // initial color
   uint8_t led_val[5] = {5,13,21,29,37}; // some initial distances
   bool led_dir[5] = {1,1,1,1,1}; // everything is initially going towards higher brightnesses
+
+  // set the appropriate threshholds for the mode - brightness caps at 255 while
+  // saturation caps at 128.
+  if(mode == 1) { 
+    scale_max = 255; 
+    delta = 2; 
+  }
+  else if (mode == 2) { 
+    scale_max = 128; 
+    delta = 1; 
+  }
+
   while(1) {
-    if(millis() >= time*time_multiplier) { SleepNow(); }
+    if(millis() >= time*time_multiplier) 
+      SleepNow();
     for(uint8_t led = 0; led<5; led++) {
-      if(mode == 1) { 
-	setLedColorHSV(led, hue, 255, led_val[led]);
-      }
-      else if (mode == 2) {
+      if(mode == 1)
+	setLedColorHSV(led, hue, 128, led_val[led]);
+      else if (mode == 2)
 	setLedColorHSV(led, hue, led_val[led], 255);
-      }
       draw_for_time(2);
       
       // if the current value for the current LED is about to exceed the top or the bottom, invert that LED's direction
-      if((led_val[led] >= (255-BRT_SCALE)) or (led_val[led] <= (0+BRT_SCALE))) {
-        led_dir[led] = !led_dir[led];
-        hue += jump;
-        if(hue >= MAX_HUE) {
-          hue = 0;
-        }
+      if((led_val[led] >= (scale_max-delta)) or (led_val[led] <= (0+delta))) {
+	led_dir[led] = !led_dir[led];
+	hue += jump;
+	if(hue > MAX_HUE)
+	  hue = 0;
       }
-      if(led_dir[led] == 1) {
-        led_val[led] += BRT_SCALE;
-      }
-      else {
-        led_val[led] -= BRT_SCALE;
-      }
+      if(led_dir[led] == 1)
+        led_val[led] += delta;
+      else 
+        led_val[led] -= delta;
     }
   }
 }
@@ -240,21 +244,30 @@ void PrimaryColors(uint16_t time) {
   bool led_dir = 1;
   uint8_t led = 0;
   while(1) {
-    if(millis() >= time*time_multiplier) { SleepNow(); }
+    if(millis() >= time*time_multiplier)
+      SleepNow();
     
     // flip the direction when the LED is at full brightness or no brightness.
-    if((led_bright >= 100) or (led_bright <= 0)) { led_dir = !led_dir; } 
+    if((led_bright >= 100) or (led_bright <= 0))
+      led_dir = !led_dir;
     
     // increment or decrement the brightness
-    if(led_dir == 1) { led_bright++; }
-    else { led_bright--; }
+    if(led_dir == 1)
+      led_bright++;
+    else
+      led_bright--;
     
     // if the decrement will turn off the current LED, switch to the next LED
-    if( led_bright <= 0 ) { led_grid[led] = 0; led++; }
+    if( led_bright <= 0 ) { 
+      led_grid[led] = 0; 
+      led++; 
+    }
     
     // And if that change pushes the current LED off the end of the spire, reset to the first LED.
-    if( led >=15) { led = 0; }
-    
+    if( led >=15) 
+      led = 0; 
+
+    // push the change out to the array.
     led_grid[led] = led_bright;
     draw_for_time(DRAW_TIME);
   }
@@ -271,16 +284,6 @@ all variables int16_t
 */
 void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t bri) {
   int16_t red_val, green_val, blue_val;
-
-  // manage the case where I set to floating calculations but don't change the
-  // routine.
-  if(MAX_HUE == 360) {
-    hue = map(hue,0,361,0,765);
-    hue = constrain(hue,0,764);
-  }
-
-  sat = map(sat,0,256,0,129);
-  sat = constrain(sat,0,128);
 
   while (hue > 764) hue -= 765;
   while (hue < 0) hue += 765;
@@ -396,13 +399,16 @@ void draw_frame(void){
   // giving the loop a bit of breathing room seems to prevent the last LED from flickering.  Probably optimizes into oblivion anyway.
   for ( led=0; led<=15; led++ ) { 
     //software PWM
-    for( b=0; b<led_grid[led]; b+=1)  { light_led(led); } //delay while on
-    for( b=led_grid[led]; b<100; b+=1)  { leds_off(); } //delay while off
+    // Light the LED in proportion to the value in the led_grid array
+    for( b=0; b<led_grid[led]; b+=1)
+      light_led(led);
+    // and turn the LED off for the amount of time in the led_grid array beneath 100.
+    for( b=led_grid[led]; b<100; b+=1)
+      leds_off();
   }
 }
 
 void EEReadSettings (void) {  // TODO: Detect ANY bad values, not just 255.
-  
   byte detectBad = 0;
   byte value = 255;
   
@@ -412,9 +418,8 @@ void EEReadSettings (void) {  // TODO: Detect ANY bad values, not just 255.
   else
     last_mode = value;  // MainBright has maximum possible value of 8.
   
-  if (detectBad) {
+  if (detectBad)
     last_mode = 1; // I prefer the rainbow effect.
-  }
 }
 
 void EESaveSettings (void){
@@ -425,8 +430,7 @@ void EESaveSettings (void){
   
   byte value = EEPROM.read(0);
 
-  if(value != last_mode) {
+  if(value != last_mode)
     EEPROM.write(0, last_mode);
-  }
 }
 
