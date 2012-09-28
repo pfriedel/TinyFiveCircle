@@ -1,41 +1,7 @@
 // Tiny85 versioned - ATmega requires these defines to be redone as well as the
 // DDRB/PORTB calls later on.
 
-// Because I tend to forget - the number here is the Port B pin in use.  Pin 5 is PB0, Pin 6 is PB1, etc.
-#define LINE_A 0 // PB0 / Pin 5 on ATtiny85 / Pin 14 on an ATmega328 (D8)
-#define LINE_B 1 // PB1 / Pin 6 on ATtiny85 / Pin 15 on an ATmega328 (D9) 
-#define LINE_C 2 // PB2 / Pin 7 on ATtiny85 / Pin 17 on an ATmega328 (D11)
-#define LINE_D 3 // PB3 / Pin 2 on ATtiny85 / Pin 18 on an ATmega328 (D12)
-#define LINE_E 4 // PB4 / Pin 3 on ATtiny85
-
-#include <avr/io.h>
-#include <avr/sleep.h>
-#include <avr/power.h>
-#include <EEPROM.h>
-
-// How many modes do we want to go through?
-#define MAX_MODE 3
-// How long should I draw each color on each LED?
-#define DRAW_TIME 5
-
-#define BODS 7 // Location of the brown-out disable switch in the MCU Control Register
-#define BODSE 2 // Location of the Brown-out disable switch enable bit in the MCU Control Register
-
-#define time_multiplier 60000 // change the base for the time statement - right now it's 1 minute
-#define short_run 30
-#define medium_run 240 // 4 hours
-#define long_run 480 // 8 hours
-
-// integer HSV to RGB calculation
-//#define MAX_HUE 1529 // non-normalized
-//#define MAX_HUE 764 // normalized
-#define MAX_HUE 360 
-
 /* commentary: 
-
-The _imperfect HSV to RGB code is buggy and shouldn't be use when brightness or
-saturation varies.  It's fine with varying hues, though.  The fact that it
-clings to the ceiling is sort of a feature, not a bug.
 
 Future modes:
 
@@ -45,8 +11,7 @@ Future modes:
 
 3. brightness walk at constant hue - existing mode
 
-4. saturation walk is kind of obnoxious, but might be worth trying now (inverse
-   of #3 - that one goes to black, this would go to white.)
+4. saturation walk is kind of obnoxious - existing mode
 
 5. "Rain" - start at LED1 with a random color.  Advance color to LED2 and pick a
    new LED1.  Rotate around the ring.
@@ -66,6 +31,37 @@ Future modes:
    old color is fading out.
 
 */
+
+// Because I tend to forget - the number here is the Port B pin in use.  Pin 5 is PB0, Pin 6 is PB1, etc.
+#define LINE_A 0 // PB0 / Pin 5 on ATtiny85 / Pin 14 on an ATmega328 (D8)
+#define LINE_B 1 // PB1 / Pin 6 on ATtiny85 / Pin 15 on an ATmega328 (D9) 
+#define LINE_C 2 // PB2 / Pin 7 on ATtiny85 / Pin 17 on an ATmega328 (D11)
+#define LINE_D 3 // PB3 / Pin 2 on ATtiny85 / Pin 18 on an ATmega328 (D12)
+#define LINE_E 4 // PB4 / Pin 3 on ATtiny85
+
+#include <avr/sleep.h>
+#include <avr/power.h>
+#include <EEPROM.h>
+
+// How many modes do we want to go through?
+#define MAX_MODE 5
+// How long should I draw each color on each LED?
+#define DRAW_TIME 5
+
+// Location of the brown-out disable switch in the MCU Control Register (MCUCR)
+#define BODS 7 
+// Location of the Brown-out disable switch enable bit in the MCU Control Register (MCUCR)
+#define BODSE 2 
+
+// The base unit for the time comparison. 1000=1s, 10000=10s, 60000=1m, etc.
+#define time_multiplier 60000 // change the base for the time statement - right now it's 1 minute
+// How long should it run before going to sleep?
+#define short_run 30
+
+// integer HSV to RGB calculation
+//#define MAX_HUE 1529 // non-normalized
+//#define MAX_HUE 764 // normalized
+#define MAX_HUE 360 
 
 byte __attribute__ ((section (".noinit"))) last_mode;
 
@@ -101,9 +97,9 @@ void setup() {
 
 void loop() {
   // indicate which mode we're entering
-  light_led(last_mode);
-  delay(1000);
-  leds_off();
+  led_grid[last_mode] = 100;
+  draw_for_time(1000);
+  led_grid[last_mode] = 0;
   delay(250);
 
   // If EXTRF hasn't been asserted yet, save the mode
@@ -126,53 +122,24 @@ void loop() {
     // Walk through brightness values across all hues.
     // this walks through brightnesses, slowly shifting hues.
     // 10-14mA depending on which LEDs are lit
-    BrightnessWalk(short_run);
+    SB_Walk(short_run,1,1);
     break;
   case 3:
+    SB_Walk(short_run,7,1);
+    break;
+  case 4:
     // One LED at a time, PWM up to full brightness and back down again.
     // 9-10mA depending on which LEDs are lit
     PrimaryColors(short_run);
     break;
-  case 4:
-    RandomColorRandomPosition(medium_run);
-    break;
   case 5:
-    HueWalk(medium_run);
-    break;
-  case 6:
-    BrightnessWalk(medium_run);
-    break;
-  case 7:
-    PrimaryColors(medium_run);
-    break;
-  case 8:
-    RandomColorRandomPosition(long_run);
-    break;
-  case 9:
-    HueWalk(long_run);
-    break;
-  case 10:
-    BrightnessWalk(long_run);
-    break;
-  case 11:
-    PrimaryColors(long_run);
+    SB_Walk(short_run,7,2);
     break;
   }
+
 }
 
 void SleepNow(void) {
-  // I don't think this matters in my circuit, but it doesn't hurt either - my
-  // meter can't actually read the low current mode it goes in to when BOD is
-  // disabled.
-  pinMode(0, OUTPUT);
-  pinMode(1, OUTPUT);
-  pinMode(3, OUTPUT);
-  pinMode(4, OUTPUT);
-  digitalWrite(0, HIGH);
-  digitalWrite(1, HIGH);
-  digitalWrite(3, HIGH);
-  digitalWrite(4, HIGH);
-
   // decrement last_mode, so the EXTRF increment sets it back to where it was.
   // note: this actually doesn't work that great in cases where power is removed after the MCU goes to sleep.
   // On the other hand, that's an edge condition that I'm not going to worry about too much.
@@ -199,6 +166,11 @@ void SleepNow(void) {
 }
   
 void RandomColorRandomPosition(uint16_t time) {
+  // preload all the LEDs with a color
+  for(int x = 0; x<5; x++) {
+    setLedColorHSV(x,random(MAX_HUE), 255, 255);
+  }
+  // and start blinking new ones in once a second.
   while(1) {
     setLedColorHSV(random(5),random(MAX_HUE), 255, 255);
     draw_for_time(1000);
@@ -213,29 +185,42 @@ void HueWalk(uint16_t time) {
     for(uint16_t colorshift=0; colorshift<MAX_HUE; colorshift++) {
       for(uint8_t led = 0; led<5; led++) {
 	uint16_t hue = ((led) * MAX_HUE/(width)+colorshift)%MAX_HUE;
-	setLedColorHSV_imperfect(led,hue,255,255);
-	draw_for_time(DRAW_TIME);
+	setLedColorHSV(led,hue,255,255);
+	draw_for_time(3);
 	if(millis() >= time*time_multiplier) { SleepNow(); }
       }
     }
   }
 }
 
-void BrightnessWalk(uint16_t time) {
-#define BRT_SCALE 4 // how quickly brightnesses should increment.
+/*
+time: How long it should run
+jump: How much should hue increment every time an LED flips direction?
+mode: 
+  1 = walk through brightnesses at full saturation, 
+  2 = walk through saturations at full brightness.
+1 tends towards colors & black, 2 tends towards colors & white.
+*/
+void SB_Walk(uint16_t time, uint8_t jump, uint8_t mode) {
+#define BRT_SCALE 2 // how quickly brightnesses should increment.
   uint16_t hue = random(MAX_HUE); // initial color
   uint8_t led_val[5] = {5,13,21,29,37}; // some initial distances
   bool led_dir[5] = {1,1,1,1,1}; // everything is initially going towards higher brightnesses
   while(1) {
     if(millis() >= time*time_multiplier) { SleepNow(); }
     for(uint8_t led = 0; led<5; led++) {
-      setLedColorHSV(led, hue, 255, led_val[led]);
-      draw_for_time(DRAW_TIME);
+      if(mode == 1) { 
+	setLedColorHSV(led, hue, 255, led_val[led]);
+      }
+      else if (mode == 2) {
+	setLedColorHSV(led, hue, led_val[led], 255);
+      }
+      draw_for_time(2);
       
       // if the current value for the current LED is about to exceed the top or the bottom, invert that LED's direction
       if((led_val[led] >= (255-BRT_SCALE)) or (led_val[led] <= (0+BRT_SCALE))) {
         led_dir[led] = !led_dir[led];
-        hue++; // actually increments hue by the number of LEDs as each LED goes through the ceiling or the floor, but MAX_HUE is a loooong way from here.
+        hue += jump;
         if(hue >= MAX_HUE) {
           hue = 0;
         }
@@ -276,71 +261,6 @@ void PrimaryColors(uint16_t time) {
 }
 
 
-/* ---------------8-Bit-PWM--------------------------
-hue: 0 to 1529
-sat: 0 to 256 (0 to 255 with small inaccuracy)
-bri: 0 to 255
-all variables uint16_t
-
-This is actually not quite perfect, since it jumps to uint16t in a nonlinear
-fashion, but the errors mostly cancel each other out.  The upshot is that once a
-color channel gets over halfway, it snaps to full brightness and stays there.
-That spoils the color change a bit, but it's sort of a nice looking bug.
-
-That said, it does horrible things when you're slewing around in brightness.
-
-*/
-
-void setLedColorHSV_imperfect(uint8_t p, int16_t hue, int16_t sat, int16_t bri) {
-  int16_t red_val, green_val, blue_val;
-
-  if(MAX_HUE == 360) {
-    hue = map(hue,0,360,0,1529);
-  }
-
-  while (hue > 1529) hue -= 1530;
-  while (hue < 0) hue += 1530;
-  
-  if (hue < 255) {
-    red_val = 255;
-    green_val = (65280 - sat * (255 - hue)) >> 8;
-    blue_val = 255 - sat;
-  }
-  else if (hue < 510) {
-    red_val = (65280 - sat * (hue - 255)) >> 8;
-    green_val = 255;
-    blue_val = 255 - sat;
-  }
-  else if (hue < 765) {
-    red_val = 255 - sat;
-    green_val = 255;
-    blue_val = (65280 - sat * (765 - hue)) >> 8;
-  }
-  else if (hue < 1020) {
-    red_val = 255 - sat;
-    green_val = (65280 - sat * (hue - 765)) >> 8;
-    blue_val = 255;
-  }
-  else if (hue < 1275) {
-    red_val = (65280 - sat * (1275 - hue)) >> 8;
-    green_val = 255 - sat;
-    blue_val = 255;
-  }
-  else {
-    red_val = 255;
-    green_val = 255 - sat;
-    blue_val = (65280 - sat * (hue - 1275)) >> 8;
-  }
-  
-  // ranges from 0-127,65408-65535
-  uint16_t red = ((bri + 1) * red_val) >> 8;
-  uint16_t green = ((bri + 1) * green_val) >> 8;
-  uint16_t blue = ((bri + 1) * blue_val) >> 8;
-
-  set_led_rgb(p,map(red,0,255,0,100),map(green,0,255,0,100),map(blue,0,255,0,100));
-}
-
-
 // from http://mbed.org/forum/mbed/topic/1251/?page=1#comment-6216
 //4056 bytes on this version.
 /*-------8-Bit-PWM-|-Light-Emission-normalized------
@@ -355,12 +275,12 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t bri) {
   // manage the case where I set to floating calculations but don't change the
   // routine.
   if(MAX_HUE == 360) {
-    hue = map(hue,0,360,0,764);
+    hue = map(hue,0,361,0,765);
+    hue = constrain(hue,0,764);
   }
 
-  if(MAX_SAT == 255) {
-    sat = map(sat,0,255,0,128);
-  }
+  sat = map(sat,0,256,0,129);
+  sat = constrain(sat,0,128);
 
   while (hue > 764) hue -= 765;
   while (hue < 0) hue += 765;
@@ -384,8 +304,21 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t bri) {
   int16_t red = (uint16_t)((bri + 1) * red_val) >> 8;
   int16_t green = (uint16_t)((bri + 1) * green_val) >> 8;
   int16_t blue = (uint16_t)((bri + 1) * blue_val) >> 8;
+
+  // remap that to a 0-100 range.  The map is 1 over the input and outputs to
+  // allow for the full range to be handled.
+
+  red = constrain(map(red,0,256,0,101)
+		  , 0
+		  , 100);
+  green = constrain(map(green,0,256,0,101)
+		    , 0
+		    , 100);
+  blue = constrain(map(blue,0,256,0,101)
+		   , 0 
+		   , 100);
   
-  set_led_rgb(p,map(red,0,255,0,100),map(green,0,255,0,100),map(blue,0,255,0,100));
+  set_led_rgb(p,red,green,blue);
 }
 
 /* Args:
@@ -459,13 +392,12 @@ void leds_off() {
 }
 
 void draw_frame(void){
-  uint8_t led, bright_val, b;
+  uint8_t led, b;
   // giving the loop a bit of breathing room seems to prevent the last LED from flickering.  Probably optimizes into oblivion anyway.
   for ( led=0; led<=15; led++ ) { 
     //software PWM
-    bright_val = led_grid[led];
-    for( b=0 ; b < bright_val ; b+=1)  { light_led(led); } //delay while on
-    for( b=bright_val ; b<100 ; b+=1)  { leds_off(); } //delay while off
+    for( b=0; b<led_grid[led]; b+=1)  { light_led(led); } //delay while on
+    for( b=led_grid[led]; b<100; b+=1)  { leds_off(); } //delay while off
   }
 }
 
