@@ -94,7 +94,7 @@ void setup() {
 
 void loop() {
   // indicate which mode we're entering
-  led_grid[last_mode] = 100;
+  led_grid[last_mode] = 500;
   draw_for_time(1000);
   led_grid[last_mode] = 0;
   delay(250);
@@ -248,7 +248,7 @@ void PrimaryColors(uint16_t time) {
       SleepNow();
     
     // flip the direction when the LED is at full brightness or no brightness.
-    if((led_bright >= 100) or (led_bright <= 0))
+    if((led_bright >= 255) or (led_bright <= 0))
       led_dir = !led_dir;
     
     // increment or decrement the brightness
@@ -311,15 +311,15 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t bri) {
   // remap that to a 0-100 range.  The map is 1 over the input and outputs to
   // allow for the full range to be handled.
 
-  red = constrain(map(red,0,256,0,101)
-		  , 0
-		  , 100);
-  green = constrain(map(green,0,256,0,101)
-		    , 0
-		    , 100);
-  blue = constrain(map(blue,0,256,0,101)
-		   , 0 
-		   , 100);
+//  red = constrain(map(red,0,256,0,101)
+//		  , 0
+//		  , 100);
+//  green = constrain(map(green,0,256,0,101)
+//		    , 0
+//		    , 100);
+//  blue = constrain(map(blue,0,256,0,101)
+//		   , 0 
+//		   , 100);
   
   set_led_rgb(p,red,green,blue);
 }
@@ -395,15 +395,16 @@ void leds_off() {
 }
 
 void draw_frame(void){
-  uint8_t led, b;
+  uint16_t b;
+  uint8_t led;
   // giving the loop a bit of breathing room seems to prevent the last LED from flickering.  Probably optimizes into oblivion anyway.
-  for ( led=0; led<=15; led++ ) { 
+  for ( led=0; led<15; led++ ) { 
     //software PWM
     // Light the LED in proportion to the value in the led_grid array
-    for( b=0; b<led_grid[led]; b+=1)
+    for( b=0; b<led_grid[led]; b+=2 )
       light_led(led);
-    // and turn the LED off for the amount of time in the led_grid array beneath 100.
-    for( b=led_grid[led]; b<100; b+=1)
+    // and turn the LED off for the amount of time in the led_grid array beneath 200
+    for( b=led_grid[led]; b<200; b+=2 )
       leds_off();
   }
 }
