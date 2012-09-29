@@ -90,6 +90,30 @@ void setup() {
     seed = (seed<<1) | (analogRead(1)&1);
   }
   randomSeed(seed);
+
+//  TCCR0B |= (1<<CS00); //No prescaling - clock rate
+//  TIMSK |= (1<<TOIE1);
+//  sei();
+
+  float prescaler = 0.0;
+
+  TIMSK &= ~(1<<TOIE1);
+  TCCR0A &= ~((1<<WGM01) | (1<<WGM00));
+  TCCR0B &= ~(1<<WGM02);
+  TIMSK &= ~(1<<OCIE1A);
+  //  ASSR &= ~(1<<AS2);
+        
+  TCCR1 |= (1<<CS12);
+  TCCR1 &= ~((1<<CS11) | (1<<CS10));
+
+  TIMSK |= (1<<TOIE1);
+  prescaler = 32.0;
+
+  TCNT0 = 256 - (int)((float)F_CPU * 0.0005 / prescaler);
+
+
+  sei();
+
 }
 
 void loop() {
@@ -248,7 +272,7 @@ void HueWalk(uint16_t time) {
       for(uint8_t led = 0; led<5; led++) {
 	uint16_t hue = ((led) * MAX_HUE/(width)+colorshift)%MAX_HUE;
 	setLedColorHSV(led,hue,128,255);
-	draw_for_time(2);
+	//	draw_for_time(2);
 	if(millis() >= time*time_multiplier) { SleepNow(); }
       }
     }
@@ -460,7 +484,7 @@ void leds_off() {
   PORTB = 0;
 }
 
-void draw_frame(void){
+ISR(TIM1_OVF_vect) {
   uint16_t b;
   uint8_t led;
   // giving the loop a bit of breathing room seems to prevent the last LED from flickering.  Probably optimizes into oblivion anyway.
@@ -473,6 +497,21 @@ void draw_frame(void){
     for( b=led_grid[led]; b<200; b+=2 )
       leds_off();
   }
+}
+
+void draw_frame(void){
+//  uint16_t b;
+//  uint8_t led;
+//  // giving the loop a bit of breathing room seems to prevent the last LED from flickering.  Probably optimizes into oblivion anyway.
+//  for ( led=0; led<15; led++ ) { 
+//    //software PWM
+//    // Light the LED in proportion to the value in the led_grid array
+//    for( b=0; b<led_grid[led]; b+=2 )
+//      light_led(led);
+//    // and turn the LED off for the amount of time in the led_grid array beneath 200
+//    for( b=led_grid[led]; b<200; b+=2 )
+//      leds_off();
+//  }
 }
 
 void EEReadSettings (void) {  // TODO: Detect ANY bad values, not just 255.
