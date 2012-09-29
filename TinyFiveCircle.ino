@@ -44,7 +44,7 @@ Future modes:
 #include <EEPROM.h>
 
 // How many modes do we want to go through?
-#define MAX_MODE 5
+#define MAX_MODE 6
 // How long should I draw each color on each LED?
 #define DRAW_TIME 5
 
@@ -132,6 +132,10 @@ void loop() {
   case 5:
     SBWalk(short_run,14,2);
     break;
+  case 6:
+    LarsonScanner(short_run);
+    break;
+    
   }
 }
 
@@ -159,6 +163,68 @@ void SleepNow(void) {
   sleep_cpu(); // go to sleep
   delay(500);
   sleep_disable(); // disable sleep mode for safety
+}
+
+void LarsonScanner(uint16_t time) {
+  int8_t direction = 1;
+  uint8_t active = 1;
+  uint8_t maxbright = 255;
+  uint8_t decayfactor = 10;
+  uint8_t width = 5;
+  uint8_t virtualwidth = 3;
+  int array[width+(2*virtualwidth)];
+
+  // blank out the array...
+  for(uint8_t x = 0; x<width+(2*virtualwidth); x++) {
+    array[x] = 0;
+  }
+
+  while(1) {
+    if(millis() >= time*time_multiplier) { SleepNow(); }
+    //    Serial.print(active); Serial.print(" "); Serial.print(direction); Serial.print("\t");
+
+    // If the active element will go outside of the realm of the array
+    if((active >= (width+(2*virtualwidth)-1)) // high side match
+       || (active < 1 )) {  // low side match
+      if(direction == 1) 
+	direction = -1;
+      else if(direction == -1) 
+	direction = 1;
+    }
+
+    // change which member is the active member
+    if(direction == 1)
+      active++;
+    else 
+      active--;
+
+    // pin the currently active member to the maximum brightness
+    array[active] = maxbright;
+
+    // dim the other members of the array
+
+    // start 1 element off the current.  If I start at 0, I would be
+    // dimming the currently active element.
+    for(uint8_t x = 1; x<width+2; x++) {
+      //      Serial.print(x); Serial.print("\t");
+      // constrain the edits to real array elements.
+      if(active - (direction * x) >= 0)
+        array[active - (direction * x)] -= (maxbright / width + decayfactor);
+
+      // clear out the subzero dross.
+      if(array[active - (direction *x)] < 0)
+        array[active - (direction * x)] = 0;
+    }
+
+    uint8_t displaypos = 0;
+    for(uint8_t x = virtualwidth; x < width + virtualwidth; x++) {
+      //      Serial.print(array[x]); Serial.print("\t");
+      led_grid[displaypos] = array[x];
+      displaypos++;
+    }
+    //    Serial.println("");
+    draw_for_time(30);
+  }
 }
   
 void RandomColorRandomPosition(uint16_t time) {
