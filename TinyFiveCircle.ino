@@ -225,7 +225,7 @@ void LarsonScanner(uint16_t time, uint32_t start_time) {
     array[x] = 0;
   }
 
-  uint8_t hue = random(MAX_HUE);
+  uint16_t hue = random(MAX_HUE);
 
   while(1) {
     if(millis() >= (start_time + (time * time_multiplier))) { break; }
