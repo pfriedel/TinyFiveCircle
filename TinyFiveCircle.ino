@@ -54,7 +54,7 @@ Future modes:
 #define BODSE 2 
 
 // The base unit for the time comparison. 1000=1s, 10000=10s, 60000=1m, etc.
-//#define time_multiplier 60000 // change the base for the time statement - right now it's 1 minute
+//#define time_multiplier 1000 // change the base for the time statement - right now it's 1 minute
 #define time_multiplier 60000 // change the base for the time statement - right now it's 1 minute
 // How long should it run before going to sleep?
 #define short_run 30
@@ -94,6 +94,7 @@ void setup() {
 }
 
 void loop() {
+  last_mode = 9;
   // indicate which mode we're entering
   led_grid[last_mode] = 500;
   draw_for_time(1000);
@@ -140,49 +141,54 @@ void loop() {
     LarsonScanner(short_run,millis());
     break;
   case 10:
-    uint8_t allrand_time = 10;
-    while(1) {
-      for(int x = 0; x<=15; x++) {
-	led_grid[x] = 0;
-      }
-
-      int randmode = random(10);
-
-      switch(randmode) {
-      case 0: // red 1
-	RandomColorRandomPosition(allrand_time,millis());
-	break;
-      case 1: // red 2
-	HueWalk(allrand_time,millis(),20,1); // wide virtual space, slow progression
-	break;
-      case 2: // red 3
-	HueWalk(allrand_time,millis(),20,5); // wide virtual space, fast progression
-	break;
-      case 3: // red 4
-	HueWalk(allrand_time,millis(),5,1); // 1:1 space to LED, slow progression
-	break;
-      case 4: // red 5
-	HueWalk(allrand_time,millis(),5,5); // 1:1 space to LED, fast progression
-	break;
-      case 5: // green 1
-	SBWalk(allrand_time,millis(),1,1); // Slow progression through hues modifying brightness
-	break; 
-      case 6: // green 2
-	SBWalk(allrand_time,millis(),14,1); // fast progression through hues modifying brightness
-	break;
-      case 7: // green 3
-	SBWalk(allrand_time,millis(),14,2); // fast progression through hues modifying saturation
-	break;
-      case 8: // green 4
-	PrimaryColors(allrand_time,millis());
-	break;
-      case 9: // green 5
-	LarsonScanner(allrand_time,millis());
-	break;
-      }
-    }
+    AllRand();
+    break;
   }
   SleepNow();
+}
+
+void AllRand(void) {
+  uint8_t allrand_time = 5;
+  while(1) {
+    for(int x = 0; x<=15; x++) {
+      led_grid[x] = 0;
+    }
+    
+    int randmode = random(10);
+    
+    switch(randmode) {
+    case 0: // red 1
+      RandomColorRandomPosition(allrand_time,millis());
+      break;
+    case 1: // red 2
+      HueWalk(allrand_time,millis(),20,1); // wide virtual space, slow progression
+      break;
+    case 2: // red 3
+      HueWalk(allrand_time,millis(),20,5); // wide virtual space, fast progression
+      break;
+    case 3: // red 4
+      HueWalk(allrand_time,millis(),5,1); // 1:1 space to LED, slow progression
+      break;
+    case 4: // red 5
+      HueWalk(allrand_time,millis(),5,5); // 1:1 space to LED, fast progression
+      break;
+    case 5: // green 1
+      SBWalk(allrand_time,millis(),1,1); // Slow progression through hues modifying brightness
+      break; 
+    case 6: // green 2
+      SBWalk(allrand_time,millis(),14,1); // fast progression through hues modifying brightness
+      break;
+    case 7: // green 3
+      SBWalk(allrand_time,millis(),14,2); // fast progression through hues modifying saturation
+      break;
+    case 8: // green 4
+      PrimaryColors(allrand_time,millis());
+      break;
+    case 9: // green 5
+      LarsonScanner(allrand_time,millis());
+      break;
+    }
+  }
 }
 
 void SleepNow(void) {
@@ -212,60 +218,58 @@ void SleepNow(void) {
 }
 
 void LarsonScanner(uint16_t time, uint32_t start_time) {
-  int8_t direction = 1;
-  uint8_t active = 1;
-  uint8_t maxbright = 255;
-  uint8_t decayfactor = 10;
-  uint8_t width = 5;
-  uint8_t virtualwidth = 3;
-  int array[width+(2*virtualwidth)];
+  int8_t LS_direction = 1;
+  uint8_t LS_active = 1;
+  uint8_t LS_maxbright = 255;
+  uint8_t LS_decayfactor = 10;
+  uint8_t LS_width = 5;
+  uint8_t LS_virtualwidth = 3;
+  int LS_array[LS_width+(2*LS_virtualwidth)];
 
   // blank out the array...
-  for(uint8_t x = 0; x<width+(2*virtualwidth); x++) {
-    array[x] = 0;
+  for(uint8_t x = 0; x<LS_width+(2*LS_virtualwidth); x++) {
+    LS_array[x] = 0;
   }
 
   uint16_t hue = random(MAX_HUE);
 
   while(1) {
     if(millis() >= (start_time + (time * time_multiplier))) { break; }
-    //    Serial.print(active); Serial.print(" "); Serial.print(direction); Serial.print("\t");
+    //    Serial.print(LS_active); Serial.print(" "); Serial.print(LS_direction); Serial.print("\t");
 
-    // If the active element will go outside of the realm of the array
-    if((active >= (width+(2*virtualwidth)-1)) // high side match
-       || (active < 1 )) {  // low side match
-      if(direction == 1) 
-	direction = -1;
-      else if(direction == -1) 
-	direction = 1;
+    // If the LS_active element will go outside of the realm of the array
+    if((LS_active >= (LS_width+(2*LS_virtualwidth)-1)) // high side match
+       || (LS_active < 1 )) {  // low side match
+      if(LS_direction == 1)       { LS_direction = -1; }
+      else if(LS_direction == -1) { LS_direction = 1; }
     }
+// Restart the loop
+//    if(LS_active >= (LS_width+(2*LS_virtualwidth)-1)) { LS_active = 1; }
 
-    // change which member is the active member
-    if(direction == 1)
-      active++;
-    else 
-      active--;
+    // change which member is the LS_active member
+    if(LS_direction == 1) { LS_active++; }
+    else               { LS_active--; }
 
-    // pin the currently active member to the maximum brightness
-    array[active] = maxbright;
+    // pin the currently LS_active member to the maximum brightness
+    LS_array[LS_active] = LS_maxbright;
 
     // dim the other members of the array
 
     // start 1 element off the current.  If I start at 0, I would be
-    // dimming the currently active element.
-    for(uint8_t x = 1; x<width+2; x++) {
+    // dimming the currently LS_active element.
+    for(uint8_t LS_x = 1; LS_x<LS_width+2; LS_x++) {
       // constrain the edits to real array elements.
-      if(active - (direction * x) >= 0)
-        array[active - (direction * x)] -= (maxbright / width + decayfactor);
-
+      if(LS_active - (LS_direction * LS_x) >= 0) {
+        LS_array[LS_active - (LS_direction * LS_x)] -= (LS_maxbright / LS_width + LS_decayfactor);
+      }
+	
       // clear out the subzero dross.
-      if(array[active - (direction *x)] < 0)
-        array[active - (direction * x)] = 0;
+      LS_array[LS_active - (LS_direction * LS_x)] = constrain(LS_array[LS_active - (LS_direction * LS_x)],0,LS_maxbright);
     }
 
     uint8_t displaypos = 0;
-    for(uint8_t x = virtualwidth; x < width + virtualwidth; x++) {
-      setLedColorHSV(displaypos,hue, 128,array[x]);
+    for(uint8_t LS_x = LS_virtualwidth; LS_x < LS_width + LS_virtualwidth; LS_x++) {
+      setLedColorHSV(displaypos,hue, 128,LS_array[LS_x]);
       displaypos++;
     }
     draw_for_time(30);
