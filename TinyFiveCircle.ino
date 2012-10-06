@@ -44,7 +44,7 @@ Future modes:
 #include <EEPROM.h>
 
 // How many modes do we want to go through?
-#define MAX_MODE 10
+#define MAX_MODE 9
 // How long should I draw each color on each LED?
 #define DRAW_TIME 5
 
@@ -57,7 +57,7 @@ Future modes:
 //#define time_multiplier 1000 // change the base for the time statement - right now it's 1 minute
 #define time_multiplier 60000 // change the base for the time statement - right now it's 1 minute
 // How long should it run before going to sleep?
-#define short_run 30
+#define run_time 30
 
 #define MAX_HUE 764 // normalized
 
@@ -94,7 +94,7 @@ void setup() {
 }
 
 void loop() {
-  last_mode = 9;
+  //  last_mode = 9;
   // indicate which mode we're entering
   led_grid[last_mode] = 500;
   draw_for_time(1000);
@@ -107,40 +107,33 @@ void loop() {
   // go into the modes
   switch(last_mode) {
   case 0:
-    // random colors on random LEDs.
-    // ~15-120mA depending on which LEDs are lit.
-    RandomColorRandomPosition(short_run,millis());
+    RandomColorRandomPosition(run_time,millis());
     break;
   case 1: 
-    HueWalk(short_run,millis(),20,1); // wide virtual space, slow progression
+    HueWalk(run_time,millis(),20,1); // wide virtual space, slow progression
     break;
   case 2:
-    HueWalk(short_run,millis(),20,5); // wide virtual space, fast progression
+    HueWalk(run_time,millis(),20,5); // wide virtual space, fast progression
     break;
   case 3:
-    HueWalk(short_run,millis(),5,1); // 1:1 space to LED, slow progression
+    HueWalk(run_time,millis(),5,1); // 1:1 space to LED, slow progression
     break;
   case 4:
-    HueWalk(short_run,millis(),5,5); // 1:1 space to LED, fast progression
+    HueWalk(run_time,millis(),5,5); // 1:1 space to LED, fast progression
     break;
   case 5: 
-    SBWalk(short_run,millis(),1,1); // Slow progression through hues modifying brightness
+    SBWalk(run_time,millis(),1,1); // Slow progression through hues modifying brightness
     break; 
   case 6:
-    SBWalk(short_run,millis(),14,1); // fast progression through hues modifying brightness
+    SBWalk(run_time,millis(),14,1); // fast progression through hues modifying brightness
     break;
   case 7:
-    SBWalk(short_run,millis(),14,2); // fast progression through hues modifying saturation
+    PrimaryColors(run_time,millis());
     break;
   case 8:
-    // One LED at a time, PWM up to full brightness and back down again.
-    // 9-10mA depending on which LEDs are lit
-    PrimaryColors(short_run,millis());
+    LarsonScanner(run_time, millis(), 1);
     break;
   case 9:
-    LarsonScanner(short_run,millis());
-    break;
-  case 10:
     AllRand();
     break;
   }
@@ -154,7 +147,7 @@ void AllRand(void) {
       led_grid[x] = 0;
     }
     
-    int randmode = random(10);
+    int randmode = random(9);
     
     switch(randmode) {
     case 0: // red 1
@@ -178,14 +171,11 @@ void AllRand(void) {
     case 6: // green 2
       SBWalk(allrand_time,millis(),14,1); // fast progression through hues modifying brightness
       break;
-    case 7: // green 3
-      SBWalk(allrand_time,millis(),14,2); // fast progression through hues modifying saturation
-      break;
-    case 8: // green 4
+    case 7: // green 4
       PrimaryColors(allrand_time,millis());
       break;
-    case 9: // green 5
-      LarsonScanner(allrand_time,millis());
+    case 8: // green 5
+      LarsonScanner(allrand_time,millis(),0);
       break;
     }
   }
@@ -217,11 +207,9 @@ void SleepNow(void) {
   sleep_disable(); // disable sleep mode for safety
 }
 
-void LarsonScanner(uint16_t time, uint32_t start_time) {
+void LarsonScanner(uint16_t time, uint32_t start_time, bool sleep) {
   int8_t LS_direction = 1;
   uint8_t LS_active = 1;
-  uint8_t LS_maxbright = 255;
-  uint8_t LS_decayfactor = 10;
   uint8_t LS_width = 5;
   uint8_t LS_virtualwidth = 3;
   int LS_array[LS_width+(2*LS_virtualwidth)];
@@ -234,8 +222,14 @@ void LarsonScanner(uint16_t time, uint32_t start_time) {
   uint16_t hue = random(MAX_HUE);
 
   while(1) {
-    if(millis() >= (start_time + (time * time_multiplier))) { break; }
-    //    Serial.print(LS_active); Serial.print(" "); Serial.print(LS_direction); Serial.print("\t");
+    if(millis() >= (start_time + (time * time_multiplier))) { 
+      if(sleep) {
+	SleepNow();
+      }
+      else {
+	break;
+      }
+    }
 
     // If the LS_active element will go outside of the realm of the array
     if((LS_active >= (LS_width+(2*LS_virtualwidth)-1)) // high side match
@@ -243,15 +237,13 @@ void LarsonScanner(uint16_t time, uint32_t start_time) {
       if(LS_direction == 1)       { LS_direction = -1; }
       else if(LS_direction == -1) { LS_direction = 1; }
     }
-// Restart the loop
-//    if(LS_active >= (LS_width+(2*LS_virtualwidth)-1)) { LS_active = 1; }
 
     // change which member is the LS_active member
     if(LS_direction == 1) { LS_active++; }
     else               { LS_active--; }
 
     // pin the currently LS_active member to the maximum brightness
-    LS_array[LS_active] = LS_maxbright;
+    LS_array[LS_active] = 255;
 
     // dim the other members of the array
 
@@ -260,20 +252,20 @@ void LarsonScanner(uint16_t time, uint32_t start_time) {
     for(uint8_t LS_x = 1; LS_x<LS_width+2; LS_x++) {
       // constrain the edits to real array elements.
       if(LS_active - (LS_direction * LS_x) >= 0) {
-        LS_array[LS_active - (LS_direction * LS_x)] -= (LS_maxbright / LS_width + LS_decayfactor);
+        LS_array[LS_active - (LS_direction * LS_x)] -= (255 / LS_width + 10);
       }
-	
-      // clear out the subzero dross.
-      LS_array[LS_active - (LS_direction * LS_x)] = constrain(LS_array[LS_active - (LS_direction * LS_x)],0,LS_maxbright);
     }
 
     uint8_t displaypos = 0;
     for(uint8_t LS_x = LS_virtualwidth; LS_x < LS_width + LS_virtualwidth; LS_x++) {
+      if(LS_array[LS_x] < 0) { LS_array[LS_x] = 0; }
+
       setLedColorHSV(displaypos,hue, 128,LS_array[LS_x]);
       displaypos++;
     }
     draw_for_time(30);
   }
+  return;
 }
   
 void RandomColorRandomPosition(uint16_t time, uint32_t start_time) {
