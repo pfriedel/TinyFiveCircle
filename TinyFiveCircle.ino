@@ -131,7 +131,7 @@ void loop() {
     PrimaryColors(run_time,millis());
     break;
   case 8:
-    LarsonScanner(run_time, millis(), 1);
+    LarsonScanner(run_time, millis(), 0);
     break;
   case 9:
     AllRand();
@@ -147,7 +147,7 @@ void AllRand(void) {
       led_grid[x] = 0;
     }
     
-    int randmode = random(9);
+    int randmode = random(7);
     
     switch(randmode) {
     case 0: // red 1
@@ -170,12 +170,6 @@ void AllRand(void) {
       break; 
     case 6: // green 2
       SBWalk(allrand_time,millis(),14,1); // fast progression through hues modifying brightness
-      break;
-    case 7: // green 4
-      PrimaryColors(allrand_time,millis());
-      break;
-    case 8: // green 5
-      LarsonScanner(allrand_time,millis(),0);
       break;
     }
   }
@@ -263,7 +257,7 @@ void LarsonScanner(uint16_t time, uint32_t start_time, bool sleep) {
       setLedColorHSV(displaypos,hue, 128,LS_array[LS_x]);
       displaypos++;
     }
-    draw_for_time(30);
+    draw_for_time(80);
   }
   return;
 }
@@ -292,7 +286,7 @@ void HueWalk(uint16_t time, uint32_t start_time, uint8_t width, uint8_t speed) {
       for(uint8_t led = 0; led<5; led++) {
 	uint16_t hue = ((led) * MAX_HUE/(width)+colorshift)%MAX_HUE;
 	setLedColorHSV(led,hue,128,255);
-	draw_for_time(2);
+	draw_for_time(5);
       }
     }
   }
@@ -330,7 +324,7 @@ void SBWalk(uint16_t time, uint32_t start_time, uint8_t jump, uint8_t mode) {
 	setLedColorHSV(led, hue, 128, led_val[led]);
       else if (mode == 2)
 	setLedColorHSV(led, hue, led_val[led], 255);
-      draw_for_time(2);
+      draw_for_time(5);
       
       // if the current value for the current LED is about to exceed the top or the bottom, invert that LED's direction
       if((led_val[led] >= (scale_max-delta)) or (led_val[led] <= (0+delta))) {
@@ -376,7 +370,7 @@ void PrimaryColors(uint16_t time, uint32_t start_time) {
 
     // push the change out to the array.
     led_grid[led] = led_bright;
-    draw_for_time(1);
+    draw_for_time(3);
   }
 }
 
