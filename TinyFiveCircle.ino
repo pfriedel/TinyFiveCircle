@@ -57,7 +57,7 @@ Future modes:
 //#define time_multiplier 1000 // change the base for the time statement - right now it's 1 minute
 #define time_multiplier 60000 // change the base for the time statement - right now it's 1 minute
 // How long should it run before going to sleep?
-#define run_time 30
+#define run_time 240
 
 #define MAX_HUE 764 // normalized
 
