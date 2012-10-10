@@ -94,7 +94,6 @@ void setup() {
 }
 
 void loop() {
-  //  last_mode = 9;
   // indicate which mode we're entering
   led_grid[last_mode] = 500;
   draw_for_time(1000);
@@ -202,15 +201,15 @@ void SleepNow(void) {
 }
 
 void LarsonScanner(uint16_t time, uint32_t start_time, bool sleep) {
-  int8_t LS_direction = 1;
-  uint8_t LS_active = 1;
-  uint8_t LS_width = 5;
-  uint8_t LS_virtualwidth = 3;
-  int LS_array[LS_width+(2*LS_virtualwidth)];
+  int8_t direction = 1;
+  uint8_t active = 1;
+  uint8_t width = 5;
+  int array[width];
+  int mode = 1;
 
   // blank out the array...
-  for(uint8_t x = 0; x<LS_width+(2*LS_virtualwidth); x++) {
-    LS_array[x] = 0;
+  for(uint8_t x = 0; x<width; x++) {
+    array[x] = 0;
   }
 
   uint16_t hue = random(MAX_HUE);
@@ -225,36 +224,43 @@ void LarsonScanner(uint16_t time, uint32_t start_time, bool sleep) {
       }
     }
 
-    // If the LS_active element will go outside of the realm of the array
-    if((LS_active >= (LS_width+(2*LS_virtualwidth)-1)) // high side match
-       || (LS_active < 1 )) {  // low side match
-      if(LS_direction == 1)       { LS_direction = -1; }
-      else if(LS_direction == -1) { LS_direction = 1; }
+    // change which member is the active member
+    if(direction == 1) { active++; }
+    else               { active--; }
+
+    if(mode == 1) {
+      if(active > (width-1)) {
+	active = 0;
+	hue++;
+      }
+    }
+    // If the active element will go outside of the realm of the array
+    else if ( mode == 0 ) {
+      if((active >= (width - 1)) // high side match
+	 || (active < 1 )) {  // low side match
+	if(direction == 1)       { direction = -1; }
+	else if(direction == -1) { direction = 1; }
+      }
     }
 
-    // change which member is the LS_active member
-    if(LS_direction == 1) { LS_active++; }
-    else               { LS_active--; }
-
-    // pin the currently LS_active member to the maximum brightness
-    LS_array[LS_active] = 255;
+    // pin the currently active member to the maximum brightness
+    array[active] = 255;
 
     // dim the other members of the array
 
     // start 1 element off the current.  If I start at 0, I would be
-    // dimming the currently LS_active element.
-    for(uint8_t LS_x = 1; LS_x<LS_width+2; LS_x++) {
+    // dimming the currently active element.
+    for(uint8_t x = 0; x<width; x++) {
       // constrain the edits to real array elements.
-      if(LS_active - (LS_direction * LS_x) >= 0) {
-        LS_array[LS_active - (LS_direction * LS_x)] -= (255 / LS_width + 10);
+      if(x != active) {
+	array[x] -= (255/(width)+25);
       }
+      if(array[x] < 0) { array[x] = 0; }
     }
 
     uint8_t displaypos = 0;
-    for(uint8_t LS_x = LS_virtualwidth; LS_x < LS_width + LS_virtualwidth; LS_x++) {
-      if(LS_array[LS_x] < 0) { LS_array[LS_x] = 0; }
-
-      setLedColorHSV(displaypos,hue, 128,LS_array[LS_x]);
+    for(uint8_t x = 0; x < width; x++) {
+      setLedColorHSV(displaypos,hue, 128,array[x]);
       displaypos++;
     }
     draw_for_time(80);
@@ -280,7 +286,7 @@ void HueWalk(uint16_t time, uint32_t start_time, uint8_t width, uint8_t speed) {
     
     if(millis() >= (start_time + (time * time_multiplier))) { break; }
 
-    for(uint16_t colorshift=0; colorshift<MAX_HUE; colorshift = colorshift + speed) {
+    for(int16_t colorshift=MAX_HUE; colorshift>0; colorshift = colorshift - speed) {
 
       if(millis() >= (start_time + (time * time_multiplier))) { break; }
       for(uint8_t led = 0; led<5; led++) {
@@ -303,7 +309,8 @@ mode:
 void SBWalk(uint16_t time, uint32_t start_time, uint8_t jump, uint8_t mode) {
   uint8_t scale_max, delta;
   uint16_t hue = random(MAX_HUE); // initial color
-  uint8_t led_val[5] = {5,13,21,29,37}; // some initial distances
+  //  uint8_t led_val[5] = {5,13,21,29,37}; // some initial distances
+  uint8_t led_val[5] = {37,29,21,13,5}; // some initial distances
   bool led_dir[5] = {1,1,1,1,1}; // everything is initially going towards higher brightnesses
 
   // set the appropriate threshholds for the mode - brightness caps at 255 while
@@ -444,44 +451,44 @@ void draw_for_time(uint16_t time) {
 }
 
 const uint8_t led_dir[15] = {
+  ( 1<<LINE_B | 1<<LINE_A ), // 4 r
+  ( 1<<LINE_A | 1<<LINE_E ), // 5 r
   ( 1<<LINE_E | 1<<LINE_D ), // 1 r
   ( 1<<LINE_D | 1<<LINE_C ), // 2 r
   ( 1<<LINE_C | 1<<LINE_B ), // 3 r
-  ( 1<<LINE_B | 1<<LINE_A ), // 4 r
-  ( 1<<LINE_A | 1<<LINE_E ), // 5 r
 
+  ( 1<<LINE_B | 1<<LINE_C ), // 4 g
+  ( 1<<LINE_A | 1<<LINE_B ), // 5 g
   ( 1<<LINE_E | 1<<LINE_A ), // 1 g
   ( 1<<LINE_D | 1<<LINE_E ), // 2 g
   ( 1<<LINE_C | 1<<LINE_D ), // 3 g
-  ( 1<<LINE_B | 1<<LINE_C ), // 4 g
-  ( 1<<LINE_A | 1<<LINE_B ), // 5 g
 
+  ( 1<<LINE_B | 1<<LINE_D ), // 4 b
+  ( 1<<LINE_A | 1<<LINE_C ), // 5 b
   ( 1<<LINE_E | 1<<LINE_B ), // 1 b
   ( 1<<LINE_D | 1<<LINE_A ), // 2 b
   ( 1<<LINE_C | 1<<LINE_E ), // 3 b
-  ( 1<<LINE_B | 1<<LINE_D ), // 4 b
-  ( 1<<LINE_A | 1<<LINE_C ), // 5 b
 };
 
 //PORTB output config for each LED (1 = High, 0 = Low)
 const uint8_t led_out[15] = {
+  ( 1<<LINE_B ), // 4 r
+  ( 1<<LINE_A ), // 5 r
   ( 1<<LINE_E ), // 1 r
   ( 1<<LINE_D ), // 2 r
   ( 1<<LINE_C ), // 3 r
-  ( 1<<LINE_B ), // 4 r
-  ( 1<<LINE_A ), // 5 r
   
+  ( 1<<LINE_B ), // 4 g
+  ( 1<<LINE_A ), // 5 g
   ( 1<<LINE_E ), // 1 g
   ( 1<<LINE_D ), // 2 g
   ( 1<<LINE_C ), // 3 g
-  ( 1<<LINE_B ), // 4 g
-  ( 1<<LINE_A ), // 5 g
   
+  ( 1<<LINE_B ), // 4 b
+  ( 1<<LINE_A ), // 5 b
   ( 1<<LINE_E ), // 1 b
   ( 1<<LINE_D ), // 2 b
   ( 1<<LINE_C ), // 3 b
-  ( 1<<LINE_B ), // 4 b
-  ( 1<<LINE_A ), // 5 b
 };
 
 void light_led(uint8_t led_num) { //led_num must be from 0 to 19
