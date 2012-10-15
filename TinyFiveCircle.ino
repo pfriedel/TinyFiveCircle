@@ -69,6 +69,12 @@ uint8_t led_grid[15] = {
   000 , 000 , 000 , 000 , 000  // B
 };
 
+uint8_t led_grid_next[15] = {
+  000 , 000 , 000 , 000 , 000 , // R
+  000 , 000 , 000 , 000 , 000 , // G
+  000 , 000 , 000 , 000 , 000  // B
+};
+
 void setup() {
   if(bit_is_set(MCUSR, PORF)) { // Power was just established!
     MCUSR = 0; // clear MCUSR
@@ -94,6 +100,7 @@ void setup() {
 }
 
 void loop() {
+  last_mode = 8;
   // indicate which mode we're entering
   led_grid[last_mode] = 500;
   draw_for_time(1000);
@@ -260,10 +267,11 @@ void LarsonScanner(uint16_t time, uint32_t start_time, bool sleep) {
 
     uint8_t displaypos = 0;
     for(uint8_t x = 0; x < width; x++) {
-      setLedColorHSV(displaypos,hue, 128,array[x]);
+      setLedColorHSV_next(displaypos,hue, 128,array[x]);
       displaypos++;
     }
-    draw_for_time(80);
+    fade_to_next_frame();
+    //    draw_for_time(10);
   }
   return;
 }
@@ -416,20 +424,36 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t bri) {
   int16_t green = (uint16_t)((bri + 1) * green_val) >> 8;
   int16_t blue = (uint16_t)((bri + 1) * blue_val) >> 8;
 
-  // remap that to a 0-100 range.  The map is 1 over the input and outputs to
-  // allow for the full range to be handled.
-
-//  red = constrain(map(red,0,256,0,101)
-//		  , 0
-//		  , 100);
-//  green = constrain(map(green,0,256,0,101)
-//		    , 0
-//		    , 100);
-//  blue = constrain(map(blue,0,256,0,101)
-//		   , 0 
-//		   , 100);
-  
   set_led_rgb(p,red,green,blue);
+}
+
+void setLedColorHSV_next(uint8_t p, int16_t hue, int16_t sat, int16_t bri) {
+  int16_t red_val, green_val, blue_val;
+
+  while (hue > 764) hue -= 765;
+  while (hue < 0) hue += 765;
+  
+  if (hue < 255) {
+    red_val = (10880 - sat * (hue - 170)) >> 7;
+    green_val = (10880 - sat * (85 - hue)) >> 7;
+    blue_val = (10880 - sat * 85) >> 7;
+  }
+  else if (hue < 510) {
+    red_val = (10880 - sat * 85) >> 7;
+    green_val = (10880 - sat * (hue - 425)) >> 7;
+    blue_val = (10880 - sat * (340 - hue)) >> 7;
+  }
+  else {
+    red_val = (10880 - sat * (595 - hue)) >> 7;
+    green_val = (10880 - sat * 85) >> 7;
+    blue_val = (10880 - sat * (hue - 680)) >> 7;
+  }
+  
+  int16_t red = (uint16_t)((bri + 1) * red_val) >> 8;
+  int16_t green = (uint16_t)((bri + 1) * green_val) >> 8;
+  int16_t blue = (uint16_t)((bri + 1) * blue_val) >> 8;
+
+  set_led_rgb_next(p,red,green,blue);
 }
 
 /* Args:
@@ -438,11 +462,32 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t bri) {
    green value - 0-100
    blue value - 0-100
 */
+
 void set_led_rgb (uint8_t p, uint8_t r, uint8_t g, uint8_t b) {
   // red usually seems to need to be attenuated a bit.
   led_grid[p] = r;
   led_grid[p+5] = g;
   led_grid[p+10] = b;
+}
+
+void set_led_rgb_next (uint8_t p, uint8_t r, uint8_t g, uint8_t b) {
+  led_grid_next[p] = r;
+  led_grid_next[p+5] = g;
+  led_grid_next[p+10] = b;
+}
+
+void fade_to_next_frame(void){
+  uint8_t led, changes;
+
+  while(1){
+    changes = 0;
+    for ( led=0; led<15; led++ ) {
+      if( led_grid[led] < led_grid_next[led] ){ led_grid[led] += 1; changes++; }
+      if( led_grid[led] > led_grid_next[led] ){ led_grid[led] -= 1; changes++; }
+    }
+    draw_frame();
+    if( changes == 0 ){break;}
+  }
 }
 
 // runs draw_frame a supplied number of times.
