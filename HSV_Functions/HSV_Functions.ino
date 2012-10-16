@@ -165,18 +165,12 @@ void c3(int hue, int sat, int val) {
   val = dim_curve[val];
   sat = 255-dim_curve[255-sat];
 
-  int r;
-  int g;
-  int b;
-  int base;
+  int r, g, b, base;
 
   if (sat == 0) { // Acromatic color (gray). Hue doesn't mind.
-    r=val;
-    g=val;
-    b=val;  
+    r = g = b = val;
   }
   else { 
-    
     base = ((255 - sat) * val)>>8;
     
     switch(hue/60) {
