@@ -20,7 +20,8 @@ Accuracy - numerically at the 3 primary colors + 3 secondary colors (i.e. full
            bright on R/G/B and Y/C/M):
 
 c1: highly accurate - all on and all off at 60 degree intervals
-c2: Kind of sloppy, never actually hits 0 brightness
+c2: Kind of sloppy, never actually hits 0 brightness.  However, it is mapping
+    HSL space and not HSV space like the others.  Might be handy to have.
 c3: Identical to the floating point version
 c4: Curious quirk - the scale seems to be 0-135, then a gap to 248-255.  Almost
     invisible on actual LEDs due to how they scale, but it makes fading
