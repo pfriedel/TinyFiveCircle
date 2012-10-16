@@ -410,6 +410,9 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t val) {
     sat = 255-dim_curve[255-sat];
   */
 
+  while (hue > 360) hue -= 361;
+  while (hue < 0) hue += 361;
+
   int r, g, b, base;
 
   if (sat == 0) { // Acromatic color (gray). Hue doesn't mind.
