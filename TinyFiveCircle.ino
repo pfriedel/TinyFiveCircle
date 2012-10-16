@@ -69,6 +69,13 @@ uint8_t led_grid[15] = {
   000 , 000 , 000 , 000 , 000  // B
 };
 
+uint8_t led_grid_next[15] = {
+  000 , 000 , 000 , 000 , 000 , // R
+  000 , 000 , 000 , 000 , 000 , // G
+  000 , 000 , 000 , 000 , 000  // B
+};
+
+
 void setup() {
   if(bit_is_set(MCUSR, PORF)) { // Power was just established!
     MCUSR = 0; // clear MCUSR
@@ -232,6 +239,8 @@ void LarsonScanner(uint16_t time, uint32_t start_time, bool sleep) {
       if(active > (width-1)) {
 	active = 0;
 	hue++;
+	if(hue >= MAX_HUE) 
+	  hue = 0;
       }
     }
     // If the active element will go outside of the realm of the array
@@ -260,10 +269,10 @@ void LarsonScanner(uint16_t time, uint32_t start_time, bool sleep) {
 
     uint8_t displaypos = 0;
     for(uint8_t x = 0; x < width; x++) {
-      setLedColorHSV(displaypos, hue, 255, array[x]);
+      setLedColorHSV(displaypos, false, hue, 255, array[x]);
       displaypos++;
     }
-    draw_for_time(80);
+    fade_to_next_frame();
   }
   return;
 }
@@ -271,11 +280,11 @@ void LarsonScanner(uint16_t time, uint32_t start_time, bool sleep) {
 void RandomColorRandomPosition(uint16_t time, uint32_t start_time) {
   // preload all the LEDs with a color
   for(int x = 0; x<5; x++) {
-    setLedColorHSV(x,random(MAX_HUE), 255, 255);
+    setLedColorHSV(x, true, random(MAX_HUE), 255, 255);
   }
   // and start blinking new ones in once a second.
   while(1) {
-    setLedColorHSV(random(5),random(MAX_HUE), 255, 255);
+    setLedColorHSV(random(5), true, random(MAX_HUE), 255, 255);
     draw_for_time(1000);
     if(millis() >= (start_time + (time * time_multiplier))) { break; }
   }
@@ -291,7 +300,7 @@ void HueWalk(uint16_t time, uint32_t start_time, uint8_t width, uint8_t speed) {
       if(millis() >= (start_time + (time * time_multiplier))) { break; }
       for(uint8_t led = 0; led<5; led++) {
 	uint16_t hue = ((led) * MAX_HUE/(width)+colorshift)%MAX_HUE;
-	setLedColorHSV(led,hue,255,255);
+	setLedColorHSV(led, true, hue, 255, 255);
 	draw_for_time(DRAW_TIME);
       }
     }
@@ -309,35 +318,26 @@ mode:
 void SBWalk(uint16_t time, uint32_t start_time, uint8_t jump, uint8_t mode) {
   uint8_t scale_max, delta;
   uint16_t hue = random(MAX_HUE); // initial color
-  //  uint8_t led_val[5] = {5,13,21,29,37}; // some initial distances
   uint8_t led_val[5] = {37,29,21,13,5}; // some initial distances
   bool led_dir[5] = {1,1,1,1,1}; // everything is initially going towards higher brightnesses
 
-  // set the appropriate threshholds for the mode - brightness caps at 255 while
-  // saturation caps at 128.
-  if(mode == 1) { 
-    scale_max = 255; 
-    delta = 2; 
-  }
-  else if (mode == 2) { 
-    scale_max = 255; 
-    delta = 2; 
-  }
+  scale_max = 254; 
+  delta = 2; 
 
   while(1) {
     if(millis() >= (start_time + (time * time_multiplier))) { break; }
     for(uint8_t led = 0; led<5; led++) {
       if(mode == 1)
-	setLedColorHSV(led, hue, 255, led_val[led]);
+	setLedColorHSV(led, true, hue, 255, led_val[led]);
       else if (mode == 2)
-	setLedColorHSV(led, hue, led_val[led], 255);
+	setLedColorHSV(led, true, hue, led_val[led], 255);
       draw_for_time(2);
       
       // if the current value for the current LED is about to exceed the top or the bottom, invert that LED's direction
       if((led_val[led] >= (scale_max-delta)) or (led_val[led] <= (0+delta))) {
 	led_dir[led] = !led_dir[led];
 	hue += jump;
-	if(hue > MAX_HUE)
+	if(hue >= MAX_HUE)
 	  hue = 0;
       }
       if(led_dir[led] == 1)
@@ -400,7 +400,16 @@ const byte dim_curve[] = {
   193, 196, 200, 203, 207, 211, 214, 218, 222, 226, 230, 234, 238, 242, 248, 255,
 };
 
-void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t val) {
+
+/*
+Inputs:
+  p : LED to set
+  immediate : Whether the change should go to led_grid or led_grid_next
+  hue : 0-360 - color
+  sat : 0-255 - how saturated should it be? 0=white, 255=full color
+  val : 0-255 - how bright should it be? 0=off, 255=full bright
+*/
+void setLedColorHSV(uint8_t p, bool immediate, int16_t hue, int16_t sat, int16_t val) {
 
   /*
     so dim_curve duplicates too many of the low numbers too long, causing the
@@ -460,7 +469,12 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t val) {
     }
   }
 
-  set_led_rgb(p,r,g,b);
+  if(immediate) {
+    set_led_rgb(p,r,g,b);
+  }
+  else {
+    set_led_rgb_next(p,r,g,b);
+  }
 }
 
 /* Args:
@@ -470,12 +484,30 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t val) {
    blue value - 0-100
 */
 void set_led_rgb (uint8_t p, uint8_t r, uint8_t g, uint8_t b) {
-  // red usually seems to need to be attenuated a bit.
   led_grid[p] = r;
   led_grid[p+5] = g;
   led_grid[p+10] = b;
 }
 
+void set_led_rgb_next (uint8_t p, uint8_t r, uint8_t g, uint8_t b) {
+  led_grid_next[p] = r;
+  led_grid_next[p+5] = g;
+  led_grid_next[p+10] = b;
+}
+
+void fade_to_next_frame(void){
+  uint8_t led, changes;
+
+  while(1){
+    changes = 0;
+    for ( led=0; led<15; led++ ) {
+      if( led_grid[led] < led_grid_next[led] ){ led_grid[led] += 1; changes++; }
+      if( led_grid[led] > led_grid_next[led] ){ led_grid[led] -= 1; changes++; }
+    }
+    draw_frame();
+    if( changes == 0 ){break;}
+  }
+}
 // runs draw_frame a supplied number of times.
 void draw_for_time(uint16_t time) {
   for(uint16_t f = 0; f<time; f++) { draw_frame(); }
