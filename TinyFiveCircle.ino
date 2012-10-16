@@ -59,7 +59,7 @@ Future modes:
 // How long should it run before going to sleep?
 #define run_time 240
 
-#define MAX_HUE 764 // normalized
+#define MAX_HUE 360 // normalized
 
 byte __attribute__ ((section (".noinit"))) last_mode;
 
@@ -112,19 +112,19 @@ void loop() {
     HueWalk(run_time,millis(),20,1); // wide virtual space, slow progression
     break;
   case 2:
-    HueWalk(run_time,millis(),20,5); // wide virtual space, fast progression
+    HueWalk(run_time,millis(),20,2); // wide virtual space, fast progression
     break;
   case 3:
     HueWalk(run_time,millis(),5,1); // 1:1 space to LED, slow progression
     break;
   case 4:
-    HueWalk(run_time,millis(),5,5); // 1:1 space to LED, fast progression
+    HueWalk(run_time,millis(),5,2); // 1:1 space to LED, fast progression
     break;
   case 5: 
     SBWalk(run_time,millis(),1,1); // Slow progression through hues modifying brightness
     break; 
   case 6:
-    SBWalk(run_time,millis(),14,1); // fast progression through hues modifying brightness
+    SBWalk(run_time,millis(),4,1); // fast progression through hues modifying brightness
     break;
   case 7:
     PrimaryColors(run_time,millis());
@@ -168,7 +168,7 @@ void AllRand(void) {
       SBWalk(allrand_time,millis(),1,1); // Slow progression through hues modifying brightness
       break; 
     case 6: // green 2
-      SBWalk(allrand_time,millis(),14,1); // fast progression through hues modifying brightness
+      SBWalk(allrand_time,millis(),4,1); // fast progression through hues modifying brightness
       break;
     }
   }
@@ -260,7 +260,7 @@ void LarsonScanner(uint16_t time, uint32_t start_time, bool sleep) {
 
     uint8_t displaypos = 0;
     for(uint8_t x = 0; x < width; x++) {
-      setLedColorHSV(displaypos,hue, 128,array[x]);
+      setLedColorHSV(displaypos, hue, 255, array[x]);
       displaypos++;
     }
     draw_for_time(80);
@@ -271,12 +271,12 @@ void LarsonScanner(uint16_t time, uint32_t start_time, bool sleep) {
 void RandomColorRandomPosition(uint16_t time, uint32_t start_time) {
   // preload all the LEDs with a color
   for(int x = 0; x<5; x++) {
-    setLedColorHSV(x,random(MAX_HUE), 128, 255);
+    setLedColorHSV(x,random(MAX_HUE), 255, 255);
   }
   // and start blinking new ones in once a second.
   while(1) {
-    setLedColorHSV(random(5),random(MAX_HUE), 128, 255);
-    draw_for_time(500);
+    setLedColorHSV(random(5),random(MAX_HUE), 255, 255);
+    draw_for_time(1000);
     if(millis() >= (start_time + (time * time_multiplier))) { break; }
   }
 }
@@ -291,8 +291,8 @@ void HueWalk(uint16_t time, uint32_t start_time, uint8_t width, uint8_t speed) {
       if(millis() >= (start_time + (time * time_multiplier))) { break; }
       for(uint8_t led = 0; led<5; led++) {
 	uint16_t hue = ((led) * MAX_HUE/(width)+colorshift)%MAX_HUE;
-	setLedColorHSV(led,hue,128,255);
-	draw_for_time(5);
+	setLedColorHSV(led,hue,255,255);
+	draw_for_time(DRAW_TIME);
       }
     }
   }
@@ -320,18 +320,18 @@ void SBWalk(uint16_t time, uint32_t start_time, uint8_t jump, uint8_t mode) {
     delta = 2; 
   }
   else if (mode == 2) { 
-    scale_max = 128; 
-    delta = 1; 
+    scale_max = 255; 
+    delta = 2; 
   }
 
   while(1) {
     if(millis() >= (start_time + (time * time_multiplier))) { break; }
     for(uint8_t led = 0; led<5; led++) {
       if(mode == 1)
-	setLedColorHSV(led, hue, 128, led_val[led]);
+	setLedColorHSV(led, hue, 255, led_val[led]);
       else if (mode == 2)
 	setLedColorHSV(led, hue, led_val[led], 255);
-      draw_for_time(5);
+      draw_for_time(2);
       
       // if the current value for the current LED is about to exceed the top or the bottom, invert that LED's direction
       if((led_val[led] >= (scale_max-delta)) or (led_val[led] <= (0+delta))) {
@@ -381,55 +381,83 @@ void PrimaryColors(uint16_t time, uint32_t start_time) {
   }
 }
 
+const byte dim_curve[] = {
+  0,   1,   1,   2,   2,   2,   2,   2,   2,   3,   3,   3,   3,   3,   3,   3,
+  3,   3,   3,   3,   3,   3,   3,   4,   4,   4,   4,   4,   4,   4,   4,   4,
+  4,   4,   4,   5,   5,   5,   5,   5,   5,   5,   5,   5,   5,   6,   6,   6,
+  6,   6,   6,   6,   6,   7,   7,   7,   7,   7,   7,   7,   8,   8,   8,   8,
+  8,   8,   9,   9,   9,   9,   9,   9,   10,  10,  10,  10,  10,  11,  11,  11,
+  11,  11,  12,  12,  12,  12,  12,  13,  13,  13,  13,  14,  14,  14,  14,  15,
+  15,  15,  16,  16,  16,  16,  17,  17,  17,  18,  18,  18,  19,  19,  19,  20,
+  20,  20,  21,  21,  22,  22,  22,  23,  23,  24,  24,  25,  25,  25,  26,  26,
+  27,  27,  28,  28,  29,  29,  30,  30,  31,  32,  32,  33,  33,  34,  35,  35,
+  36,  36,  37,  38,  38,  39,  40,  40,  41,  42,  43,  43,  44,  45,  46,  47,
+  48,  48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,
+  63,  64,  65,  66,  68,  69,  70,  71,  73,  74,  75,  76,  78,  79,  81,  82,
+  83,  85,  86,  88,  90,  91,  93,  94,  96,  98,  99,  101, 103, 105, 107, 109,
+  110, 112, 114, 116, 118, 121, 123, 125, 127, 129, 132, 134, 136, 139, 141, 144,
+  146, 149, 151, 154, 157, 159, 162, 165, 168, 171, 174, 177, 180, 183, 186, 190,
+  193, 196, 200, 203, 207, 211, 214, 218, 222, 226, 230, 234, 238, 242, 248, 255,
+};
 
-// from http://mbed.org/forum/mbed/topic/1251/?page=1#comment-6216
-//4056 bytes on this version.
-/*-------8-Bit-PWM-|-Light-Emission-normalized------
-hue: 0 to 764
-sat: 0 to 128 (0 to 127 with small inaccuracy)
-bri: 0 to 255
-all variables int16_t
-*/
-void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t bri) {
-  int16_t red_val, green_val, blue_val;
+void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t val) {
 
-  while (hue > 764) hue -= 765;
-  while (hue < 0) hue += 765;
-  
-  if (hue < 255) {
-    red_val = (10880 - sat * (hue - 170)) >> 7;
-    green_val = (10880 - sat * (85 - hue)) >> 7;
-    blue_val = (10880 - sat * 85) >> 7;
-  }
-  else if (hue < 510) {
-    red_val = (10880 - sat * 85) >> 7;
-    green_val = (10880 - sat * (hue - 425)) >> 7;
-    blue_val = (10880 - sat * (340 - hue)) >> 7;
+  /*
+    so dim_curve duplicates too many of the low numbers too long, causing the
+    animations to look janky.  Maybe 6 2's and 14 3's can be adjusted in other ways.
+    
+    val = dim_curve[val];
+    sat = 255-dim_curve[255-sat];
+  */
+
+  int r, g, b, base;
+
+  if (sat == 0) { // Acromatic color (gray). Hue doesn't mind.
+    r = g = b = val;
   }
   else {
-    red_val = (10880 - sat * (595 - hue)) >> 7;
-    green_val = (10880 - sat * 85) >> 7;
-    blue_val = (10880 - sat * (hue - 680)) >> 7;
+    base = ((255 - sat) * val)>>8;
+
+    switch(hue/60) {
+    case 0:
+      r = val;
+      g = (((val-base)*hue)/60)+base;
+      b = base;
+      break;
+
+    case 1:
+      r = (((val-base)*(60-(hue%60)))/60)+base;
+      g = val;
+      b = base;
+      break;
+
+    case 2:
+      r = base;
+      g = val;
+      b = (((val-base)*(hue%60))/60)+base;
+      break;
+
+    case 3:
+      r = base;
+      g = (((val-base)*(60-(hue%60)))/60)+base;
+      b = val;
+      break;
+
+    case 4:
+      r = (((val-base)*(hue%60))/60)+base;
+      g = base;
+      b = val;
+      break;
+
+    case 5:
+      r = val;
+      g = base;
+      b = (((val-base)*(60-(hue%60)))/60)+base;
+      break;
+    }
   }
-  
-  int16_t red = (uint16_t)((bri + 1) * red_val) >> 8;
-  int16_t green = (uint16_t)((bri + 1) * green_val) >> 8;
-  int16_t blue = (uint16_t)((bri + 1) * blue_val) >> 8;
 
-  // remap that to a 0-100 range.  The map is 1 over the input and outputs to
-  // allow for the full range to be handled.
-
-//  red = constrain(map(red,0,256,0,101)
-//		  , 0
-//		  , 100);
-//  green = constrain(map(green,0,256,0,101)
-//		    , 0
-//		    , 100);
-//  blue = constrain(map(blue,0,256,0,101)
-//		   , 0 
-//		   , 100);
-  
-  set_led_rgb(p,red,green,blue);
+  set_led_rgb(p,r,g,b);
 }
 
 /* Args:
