@@ -112,14 +112,15 @@ void loop() {
 
   // go into the modes
   switch(last_mode) {
-  case 0:
-    RandomColorRandomPosition(run_time,millis());
-    break;
-  case 1: 
+    // red modes
+  case 0: 
     HueWalk(run_time,millis(),20,1); // wide virtual space, slow progression
     break;
+  case 1:
+    HueWalk(run_time,millis(),20,2); // wide virtual space, medium progression
+    break;
   case 2:
-    HueWalk(run_time,millis(),20,2); // wide virtual space, fast progression
+    HueWalk(run_time,millis(),20,5); // wide virtual space, fast progression
     break;
   case 3:
     HueWalk(run_time,millis(),5,1); // 1:1 space to LED, slow progression
@@ -127,17 +128,18 @@ void loop() {
   case 4:
     HueWalk(run_time,millis(),5,2); // 1:1 space to LED, fast progression
     break;
+    // green modes
   case 5: 
+    RandomColorRandomPosition(run_time,millis());
+    break;
+  case 6:
     SBWalk(run_time,millis(),1,1); // Slow progression through hues modifying brightness
     break; 
-  case 6:
+  case 7:
     SBWalk(run_time,millis(),4,1); // fast progression through hues modifying brightness
     break;
-  case 7:
-    PrimaryColors(run_time,millis());
-    break;
   case 8:
-    LarsonScanner(run_time, millis(), 0);
+    PrimaryColors(run_time,millis());
     break;
   case 9:
     AllRand();
@@ -153,34 +155,42 @@ void AllRand(void) {
       led_grid[x] = 0;
     }
     
-    int randmode = random(7);
+    int randmode = random(8);
     
     switch(randmode) {
-    case 0: // red 1
-      RandomColorRandomPosition(allrand_time,millis());
-      break;
-    case 1: // red 2
+      // red modes
+    case 0: 
       HueWalk(allrand_time,millis(),20,1); // wide virtual space, slow progression
       break;
-    case 2: // red 3
+    case 1:
+      HueWalk(allrand_time,millis(),20,2); // wide virtual space, medium progression
+      break;
+    case 2:
       HueWalk(allrand_time,millis(),20,5); // wide virtual space, fast progression
       break;
-    case 3: // red 4
+    case 3:
       HueWalk(allrand_time,millis(),5,1); // 1:1 space to LED, slow progression
       break;
-    case 4: // red 5
-      HueWalk(allrand_time,millis(),5,5); // 1:1 space to LED, fast progression
+    case 4:
+      HueWalk(allrand_time,millis(),5,2); // 1:1 space to LED, fast progression
       break;
-    case 5: // green 1
+      // green modes
+    case 5: 
+      RandomColorRandomPosition(allrand_time,millis());
+      break;
+    case 6:
       SBWalk(allrand_time,millis(),1,1); // Slow progression through hues modifying brightness
       break; 
-    case 6: // green 2
+    case 7:
       SBWalk(allrand_time,millis(),4,1); // fast progression through hues modifying brightness
       break;
+    case 8:
+      PrimaryColors(allrand_time,millis());
+      break;
+      
     }
   }
 }
-
 void SleepNow(void) {
   // decrement last_mode, so the EXTRF increment sets it back to where it was.
   // note: this actually doesn't work that great in cases where power is removed after the MCU goes to sleep.
@@ -206,6 +216,8 @@ void SleepNow(void) {
   delay(500);
   sleep_disable(); // disable sleep mode for safety
 }
+
+/* currently funky.
 
 void LarsonScanner(uint16_t time, uint32_t start_time, bool sleep) {
   int8_t direction = 1;
@@ -269,22 +281,23 @@ void LarsonScanner(uint16_t time, uint32_t start_time, bool sleep) {
 
     uint8_t displaypos = 0;
     for(uint8_t x = 0; x < width; x++) {
-      setLedColorHSV(displaypos, false, hue, 255, array[x]);
+      setLedColorHSV(displaypos, hue, 255, array[x]);
       displaypos++;
     }
     fade_to_next_frame();
   }
   return;
 }
+*/
   
 void RandomColorRandomPosition(uint16_t time, uint32_t start_time) {
   // preload all the LEDs with a color
   for(int x = 0; x<5; x++) {
-    setLedColorHSV(x, true, random(MAX_HUE), 255, 255);
+    setLedColorHSV(x, random(MAX_HUE), 255, 255);
   }
   // and start blinking new ones in once a second.
   while(1) {
-    setLedColorHSV(random(5), true, random(MAX_HUE), 255, 255);
+    setLedColorHSV(random(5), random(MAX_HUE), 255, 255);
     draw_for_time(1000);
     if(millis() >= (start_time + (time * time_multiplier))) { break; }
   }
@@ -300,7 +313,7 @@ void HueWalk(uint16_t time, uint32_t start_time, uint8_t width, uint8_t speed) {
       if(millis() >= (start_time + (time * time_multiplier))) { break; }
       for(uint8_t led = 0; led<5; led++) {
 	uint16_t hue = ((led) * MAX_HUE/(width)+colorshift)%MAX_HUE;
-	setLedColorHSV(led, true, hue, 255, 255);
+	setLedColorHSV(led, hue, 255, 255);
 	draw_for_time(DRAW_TIME);
       }
     }
@@ -314,6 +327,7 @@ mode:
   1 = walk through brightnesses at full saturation, 
   2 = walk through saturations at full brightness.
 1 tends towards colors & black, 2 tends towards colors & white.
+note: mode 2 is kind of funny looking with the current HSV->RGB code.  
 */
 void SBWalk(uint16_t time, uint32_t start_time, uint8_t jump, uint8_t mode) {
   uint8_t scale_max, delta;
@@ -327,16 +341,20 @@ void SBWalk(uint16_t time, uint32_t start_time, uint8_t jump, uint8_t mode) {
   while(1) {
     if(millis() >= (start_time + (time * time_multiplier))) { break; }
     for(uint8_t led = 0; led<5; led++) {
-      if(mode == 1)
-	setLedColorHSV(led, true, hue, 255, led_val[led]);
-      else if (mode == 2)
-	setLedColorHSV(led, true, hue, led_val[led], 255);
+      if(mode == 1) {
+	setLedColorHSV(led, hue, 254,          led_val[led]);
+      } 
+      else if (mode == 2) {
+	setLedColorHSV(led, hue, led_val[led], 254);
+      }
       draw_for_time(2);
       
       // if the current value for the current LED is about to exceed the top or the bottom, invert that LED's direction
       if((led_val[led] >= (scale_max-delta)) or (led_val[led] <= (0+delta))) {
 	led_dir[led] = !led_dir[led];
-	hue += jump;
+	if(led_val[led] <= (0+delta)) {
+	  hue += jump;
+	}
 	if(hue >= MAX_HUE)
 	  hue = 0;
       }
@@ -409,7 +427,7 @@ Inputs:
   sat : 0-255 - how saturated should it be? 0=white, 255=full color
   val : 0-255 - how bright should it be? 0=off, 255=full bright
 */
-void setLedColorHSV(uint8_t p, bool immediate, int16_t hue, int16_t sat, int16_t val) {
+void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t val) {
 
   /*
     so dim_curve duplicates too many of the low numbers too long, causing the
@@ -469,12 +487,7 @@ void setLedColorHSV(uint8_t p, bool immediate, int16_t hue, int16_t sat, int16_t
     }
   }
 
-  if(immediate) {
-    set_led_rgb(p,r,g,b);
-  }
-  else {
-    set_led_rgb_next(p,r,g,b);
-  }
+  set_led_rgb(p,r,g,b);
 }
 
 /* Args:
@@ -489,32 +502,6 @@ void set_led_rgb (uint8_t p, uint8_t r, uint8_t g, uint8_t b) {
   led_grid[p+10] = b;
 }
 
-void set_led_rgb_next (uint8_t p, uint8_t r, uint8_t g, uint8_t b) {
-  led_grid_next[p] = r;
-  led_grid_next[p+5] = g;
-  led_grid_next[p+10] = b;
-}
-
-/* warning: this doesn't work as I intend.  At certain angles, the fade
-introduces a long draw time where red or green or blue is more prevalent than
-the HSB calculation would have it.  I need to entirely refactor so I store the
-HSV data per cell (writing (0-360),(0-255),(0-255) per LED, then decode it in
-draw_frame)
-*/
-
-void fade_to_next_frame(void){
-  uint8_t led, changes;
-
-  while(1){
-    changes = 0;
-    for ( led=0; led<15; led++ ) {
-      if( led_grid[led] < led_grid_next[led] ){ led_grid[led] += 1; changes++; }
-      if( led_grid[led] > led_grid_next[led] ){ led_grid[led] -= 1; changes++; }
-    }
-    draw_frame();
-    if( changes == 0 ){break;}
-  }
-}
 // runs draw_frame a supplied number of times.
 void draw_for_time(uint16_t time) {
   for(uint16_t f = 0; f<time; f++) { draw_frame(); }
@@ -598,7 +585,7 @@ void EEReadSettings (void) {  // TODO: Detect ANY bad values, not just 255.
     last_mode = value;  // MainBright has maximum possible value of 8.
   
   if (detectBad)
-    last_mode = 1; // I prefer the rainbow effect.
+    last_mode = 0; // I prefer the rainbow effect.
 }
 
 void EESaveSettings (void){
