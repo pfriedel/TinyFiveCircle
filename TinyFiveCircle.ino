@@ -495,6 +495,13 @@ void set_led_rgb_next (uint8_t p, uint8_t r, uint8_t g, uint8_t b) {
   led_grid_next[p+10] = b;
 }
 
+/* warning: this doesn't work as I intend.  At certain angles, the fade
+introduces a long draw time where red or green or blue is more prevalent than
+the HSB calculation would have it.  I need to entirely refactor so I store the
+HSV data per cell (writing (0-360),(0-255),(0-255) per LED, then decode it in
+draw_frame)
+*/
+
 void fade_to_next_frame(void){
   uint8_t led, changes;
 
