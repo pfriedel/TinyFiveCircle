@@ -61,6 +61,9 @@ Future modes:
 
 #define MAX_HUE 360 // normalized
 
+// 1 for the 8 bit version, 4 for the 6-bit version.  
+#define TIMESCALE 4
+
 byte __attribute__ ((section (".noinit"))) last_mode;
 
 uint8_t led_grid[15] = {
@@ -102,7 +105,7 @@ void setup() {
 
 void loop() {
   // indicate which mode we're entering
-  led_grid[last_mode] = 500;
+  led_grid[last_mode] = 64;
   draw_for_time(1000);
   led_grid[last_mode] = 0;
   delay(250);
@@ -374,7 +377,7 @@ void PrimaryColors(uint16_t time, uint32_t start_time) {
     if(millis() >= start_time + (time*time_multiplier)) { break; }
     
     // flip the direction when the LED is at full brightness or no brightness.
-    if((led_bright >= 255) or (led_bright <= 0))
+    if((led_bright >= 64) or (led_bright <= 0))
       led_dir = !led_dir;
     
     // increment or decrement the brightness
@@ -487,6 +490,12 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t val) {
     }
   }
 
+  // scaling to 32 brightnesses instead of 128 or 256.
+  r = r>>2;
+  g = g>>2;
+  b = b>>2;
+
+
   set_led_rgb(p,r,g,b);
 }
 
@@ -504,7 +513,7 @@ void set_led_rgb (uint8_t p, uint8_t r, uint8_t g, uint8_t b) {
 
 // runs draw_frame a supplied number of times.
 void draw_for_time(uint16_t time) {
-  for(uint16_t f = 0; f<time; f++) { draw_frame(); }
+  for(uint16_t f = 0; f<time * TIMESCALE; f++) { draw_frame(); }
 }
 
 const uint8_t led_dir[15] = {
@@ -569,7 +578,7 @@ void draw_frame(void){
     for( b=0; b<led_grid[led]; b+=2 )
       light_led(led);
     // and turn the LED off for the amount of time in the led_grid array beneath 200
-    for( b=led_grid[led]; b<200; b+=2 )
+    for( b=led_grid[led]; b<32; b+=2 )
       leds_off();
   }
 }
