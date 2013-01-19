@@ -54,15 +54,23 @@ Future modes:
 #define BODSE 2 
 
 // The base unit for the time comparison. 1000=1s, 10000=10s, 60000=1m, etc.
-//#define time_multiplier 1000 // change the base for the time statement - right now it's 1 minute
-#define time_multiplier 60000 // change the base for the time statement - right now it's 1 minute
-// How long should it run before going to sleep?
+//#define time_multiplier 1000 
+#define time_multiplier 60000
+// How many time_multiplier intervals should run before going to sleep?
 #define run_time 240
 
 #define MAX_HUE 360 // normalized
 
-// 1 for the 8 bit version, 4 for the 6-bit version.  
-#define TIMESCALE 4
+// How bit-crushed do you want the bit depth to be?  1 << TIMESCALE is how
+// quickly it goes through the LED softpwm scale.
+
+// 1 means 128 shades per color.  3 is 32 colors while 6 is 4 shades per color.
+// it sort of scales the time drawing routine, but not well.
+
+// It also affects how bright it it (less time spent drawing nothing) as well as
+// the POV flickering rate. Higher numbers are both brighter and less flicker-y.
+
+#define TIMESCALE 3
 
 byte __attribute__ ((section (".noinit"))) last_mode;
 
@@ -105,7 +113,7 @@ void setup() {
 
 void loop() {
   // indicate which mode we're entering
-  led_grid[last_mode] = 64;
+  led_grid[last_mode] = 255;
   draw_for_time(1000);
   led_grid[last_mode] = 0;
   delay(250);
@@ -377,7 +385,7 @@ void PrimaryColors(uint16_t time, uint32_t start_time) {
     if(millis() >= start_time + (time*time_multiplier)) { break; }
     
     // flip the direction when the LED is at full brightness or no brightness.
-    if((led_bright >= 64) or (led_bright <= 0))
+    if((led_bright >= 255) or (led_bright <= 0))
       led_dir = !led_dir;
     
     // increment or decrement the brightness
@@ -398,7 +406,7 @@ void PrimaryColors(uint16_t time, uint32_t start_time) {
 
     // push the change out to the array.
     led_grid[led] = led_bright;
-    draw_for_time(3);
+    draw_for_time(2);
   }
 }
 
@@ -490,11 +498,7 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t val) {
     }
   }
 
-  // scaling to 32 brightnesses instead of 128 or 256.
-  r = r>>2;
-  g = g>>2;
-  b = b>>2;
-
+  // output range is 0-255
 
   set_led_rgb(p,r,g,b);
 }
@@ -513,7 +517,7 @@ void set_led_rgb (uint8_t p, uint8_t r, uint8_t g, uint8_t b) {
 
 // runs draw_frame a supplied number of times.
 void draw_for_time(uint16_t time) {
-  for(uint16_t f = 0; f<time * TIMESCALE; f++) { draw_frame(); }
+  for(uint16_t f = 0; f<time * (1 << (TIMESCALE-1)); f++) { draw_frame(); }
 }
 
 const uint8_t led_dir[15] = {
@@ -573,12 +577,17 @@ void draw_frame(void){
   uint8_t led;
   // giving the loop a bit of breathing room seems to prevent the last LED from flickering.  Probably optimizes into oblivion anyway.
   for ( led=0; led<=15; led++ ) { 
-    //software PWM
+    // software PWM 
+    // input range is 0 (off) to 255 (fully on)
+    // the b+=8 means it only draws 32 distinct brightnesses instead of the 256 possible otherwise. The affects the refresh rate, which affects the brightness.
+    // the upshot is that draw_for_time needs a scaling factor so the animations are constant.
+
+
     // Light the LED in proportion to the value in the led_grid array
-    for( b=0; b<led_grid[led]; b+=2 )
+    for( b=0; b<led_grid[led]; b += 1<<TIMESCALE )
       light_led(led);
-    // and turn the LED off for the amount of time in the led_grid array beneath 200
-    for( b=led_grid[led]; b<32; b+=2 )
+    // and turn the LEDs off for the amount of time in the led_grid array between LED brightness and 255.
+    for( b=led_grid[led]; b<255; b += 1<<TIMESCALE )
       leds_off();
   }
 }
