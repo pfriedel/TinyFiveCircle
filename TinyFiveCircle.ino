@@ -522,6 +522,7 @@ void draw_for_time(uint16_t time) {
   for(uint16_t f = 0; f<time * (1 << (TIMESCALE-1)); f++) { draw_frame(); }
 }
 
+// Anode | cathode
 const uint8_t led_dir[15] = {
   ( 1<<LINE_B | 1<<LINE_A ), // 4 r
   ( 1<<LINE_A | 1<<LINE_E ), // 5 r
