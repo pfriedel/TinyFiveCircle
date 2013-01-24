@@ -70,7 +70,9 @@ Future modes:
 // It also affects how bright it it (less time spent drawing nothing) as well as
 // the POV flickering rate. Higher numbers are both brighter and less flicker-y.
 
-#define TIMESCALE 3
+// the build uses 1 for the PTH versions and 3 for the SMD displays.
+
+#define TIMESCALE 1
 
 byte __attribute__ ((section (".noinit"))) last_mode;
 
