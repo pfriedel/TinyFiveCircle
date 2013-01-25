@@ -46,7 +46,7 @@ Future modes:
 // How many modes do we want to go through?
 #define MAX_MODE 9
 // How long should I draw each color on each LED?
-#define DRAW_TIME 5
+#define DRAW_TIME 25
 
 // Location of the brown-out disable switch in the MCU Control Register (MCUCR)
 #define BODS 7 
@@ -61,18 +61,22 @@ Future modes:
 
 #define MAX_HUE 360 // normalized
 
-// How bit-crushed do you want the bit depth to be?  1 << TIMESCALE is how
+// How bit-crushed do you want the bit depth to be?  1 << DEPTH is how
 // quickly it goes through the LED softpwm scale.
 
 // 1 means 128 shades per color.  3 is 32 colors while 6 is 4 shades per color.
 // it sort of scales the time drawing routine, but not well.
 
-// It also affects how bright it it (less time spent drawing nothing) as well as
-// the POV flickering rate. Higher numbers are both brighter and less flicker-y.
+// It mostly affects how much POV flicker there is - 
+// 1 is moderately flickery, but the color depth is the best.
+// 3 is about the best balance of color depth and flicker
 
-// the build uses 1 for the PTH versions and 3 for the SMD displays.
+// The flicker is visible in all modes, the depth crushing starts to be evident
+// in the SBWalk modes.  Mode 7 is the touchstone for not having enough bits.
 
-#define TIMESCALE 1
+// The build uses 1 for the PTH versions and 3 for the SMD displays.
+
+#define DEPTH 3
 
 byte __attribute__ ((section (".noinit"))) last_mode;
 
@@ -115,7 +119,7 @@ void setup() {
 
 void loop() {
   // indicate which mode we're entering
-  led_grid[last_mode] = 255;
+  led_grid[last_mode] = 255>>DEPTH;
   draw_for_time(1000);
   led_grid[last_mode] = 0;
   delay(250);
@@ -327,8 +331,8 @@ void HueWalk(uint16_t time, uint32_t start_time, uint8_t width, uint8_t speed) {
       for(uint8_t led = 0; led<5; led++) {
 	uint16_t hue = ((led) * MAX_HUE/(width)+colorshift)%MAX_HUE;
 	setLedColorHSV(led, hue, 255, 255);
-	draw_for_time(DRAW_TIME);
       }
+      draw_for_time(DRAW_TIME);
     }
   }
 }
@@ -360,7 +364,6 @@ void SBWalk(uint16_t time, uint32_t start_time, uint8_t jump, uint8_t mode) {
       else if (mode == 2) {
 	setLedColorHSV(led, hue, led_val[led], 254);
       }
-      draw_for_time(2);
       
       // if the current value for the current LED is about to exceed the top or the bottom, invert that LED's direction
       if((led_val[led] >= (scale_max-delta)) or (led_val[led] <= (0+delta))) {
@@ -376,6 +379,7 @@ void SBWalk(uint16_t time, uint32_t start_time, uint8_t jump, uint8_t mode) {
       else 
         led_val[led] -= delta;
     }
+    draw_for_time(10);
   }
 }
 
@@ -387,7 +391,7 @@ void PrimaryColors(uint16_t time, uint32_t start_time) {
     if(millis() >= start_time + (time*time_multiplier)) { break; }
     
     // flip the direction when the LED is at full brightness or no brightness.
-    if((led_bright >= 255) or (led_bright <= 0))
+    if((led_bright >= (255>>DEPTH)) or (led_bright <= 0))
       led_dir = !led_dir;
     
     // increment or decrement the brightness
@@ -408,7 +412,7 @@ void PrimaryColors(uint16_t time, uint32_t start_time) {
 
     // push the change out to the array.
     led_grid[led] = led_bright;
-    draw_for_time(2);
+    draw_for_time(2*(DEPTH+1));
   }
 }
 
@@ -501,15 +505,19 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t val) {
   }
 
   // output range is 0-255
+  // Shifting it to the DEPTH bits right crushes it to 127, 64, 32, 16, 8 shades per color.
+  r = r>>DEPTH;
+  g = g>>DEPTH;
+  b = b>>DEPTH;
 
   set_led_rgb(p,r,g,b);
 }
 
 /* Args:
    position - 0-4
-   red value - 0-100
-   green value - 0-100
-   blue value - 0-100
+   red value - 0-255
+   green value - 0-255
+   blue value - 0-255
 */
 void set_led_rgb (uint8_t p, uint8_t r, uint8_t g, uint8_t b) {
   led_grid[p] = r;
@@ -519,7 +527,7 @@ void set_led_rgb (uint8_t p, uint8_t r, uint8_t g, uint8_t b) {
 
 // runs draw_frame a supplied number of times.
 void draw_for_time(uint16_t time) {
-  for(uint16_t f = 0; f<time * (1 << (TIMESCALE-1)); f++) { draw_frame(); }
+  for(uint16_t f = 0; f<time * (1 << (DEPTH-1)); f++) { draw_frame(); }
 }
 
 // Anode | cathode
@@ -581,17 +589,16 @@ void draw_frame(void){
   // giving the loop a bit of breathing room seems to prevent the last LED from flickering.  Probably optimizes into oblivion anyway.
   for ( led=0; led<=15; led++ ) { 
     // software PWM 
-    // input range is 0 (off) to 255 (fully on)
-    // the b+=8 means it only draws 32 distinct brightnesses instead of the 256 possible otherwise. The affects the refresh rate, which affects the brightness.
-    // the upshot is that draw_for_time needs a scaling factor so the animations are constant.
-
+    // input range is 0 (off) to 255>>DEPTH (128/64/32/etc) (fully on)
 
     // Light the LED in proportion to the value in the led_grid array
-    for( b=0; b<led_grid[led]; b += 1<<TIMESCALE )
+    for( b=0; b < led_grid[led]; b++ ) {
       light_led(led);
-    // and turn the LEDs off for the amount of time in the led_grid array between LED brightness and 255.
-    for( b=led_grid[led]; b<255; b += 1<<TIMESCALE )
+    }
+    // and turn the LEDs off for the amount of time in the led_grid array between LED brightness and 255>>DEPTH.
+    for( b=led_grid[led]; b < ((1<<(8 - DEPTH))-1); b++ ) {
       leds_off();
+    }
   }
 }
 
