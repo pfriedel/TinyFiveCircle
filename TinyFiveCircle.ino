@@ -76,7 +76,7 @@ Future modes:
 
 // The build uses 1 for the PTH versions and 3 for the SMD displays.
 
-#define DEPTH 3
+#define DEPTH 1
 
 byte __attribute__ ((section (".noinit"))) last_mode;
 
