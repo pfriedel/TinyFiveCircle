@@ -532,44 +532,44 @@ void draw_for_time(uint16_t time) {
 
 // Anode | cathode
 const uint8_t led_dir[15] = {
-  ( 1<<LINE_B | 1<<LINE_A ), // 4 r
-  ( 1<<LINE_A | 1<<LINE_E ), // 5 r
-  ( 1<<LINE_E | 1<<LINE_D ), // 1 r
-  ( 1<<LINE_D | 1<<LINE_C ), // 2 r
-  ( 1<<LINE_C | 1<<LINE_B ), // 3 r
+  ( 1<<LINE_B | 1<<LINE_A ), // 1 r
+  ( 1<<LINE_A | 1<<LINE_E ), // 2 r
+  ( 1<<LINE_E | 1<<LINE_D ), // 3 r
+  ( 1<<LINE_D | 1<<LINE_C ), // 4 r
+  ( 1<<LINE_C | 1<<LINE_B ), // 5 r
 
-  ( 1<<LINE_B | 1<<LINE_C ), // 4 g
-  ( 1<<LINE_A | 1<<LINE_B ), // 5 g
-  ( 1<<LINE_E | 1<<LINE_A ), // 1 g
-  ( 1<<LINE_D | 1<<LINE_E ), // 2 g
-  ( 1<<LINE_C | 1<<LINE_D ), // 3 g
+  ( 1<<LINE_B | 1<<LINE_C ), // 1 g
+  ( 1<<LINE_A | 1<<LINE_B ), // 2 g
+  ( 1<<LINE_E | 1<<LINE_A ), // 3 g
+  ( 1<<LINE_D | 1<<LINE_E ), // 4 g
+  ( 1<<LINE_C | 1<<LINE_D ), // 5 g
 
-  ( 1<<LINE_B | 1<<LINE_D ), // 4 b
-  ( 1<<LINE_A | 1<<LINE_C ), // 5 b
-  ( 1<<LINE_E | 1<<LINE_B ), // 1 b
-  ( 1<<LINE_D | 1<<LINE_A ), // 2 b
-  ( 1<<LINE_C | 1<<LINE_E ), // 3 b
+  ( 1<<LINE_B | 1<<LINE_D ), // 1 b
+  ( 1<<LINE_A | 1<<LINE_C ), // 2 b
+  ( 1<<LINE_E | 1<<LINE_B ), // 3 b
+  ( 1<<LINE_D | 1<<LINE_A ), // 4 b
+  ( 1<<LINE_C | 1<<LINE_E ), // 5 b
 };
 
 //PORTB output config for each LED (1 = High, 0 = Low)
 const uint8_t led_out[15] = {
-  ( 1<<LINE_B ), // 4 r
-  ( 1<<LINE_A ), // 5 r
-  ( 1<<LINE_E ), // 1 r
-  ( 1<<LINE_D ), // 2 r
-  ( 1<<LINE_C ), // 3 r
+  ( 1<<LINE_B ), // 1
+  ( 1<<LINE_A ), // 2
+  ( 1<<LINE_E ), // 3
+  ( 1<<LINE_D ), // 4
+  ( 1<<LINE_C ), // 5
   
-  ( 1<<LINE_B ), // 4 g
-  ( 1<<LINE_A ), // 5 g
-  ( 1<<LINE_E ), // 1 g
-  ( 1<<LINE_D ), // 2 g
-  ( 1<<LINE_C ), // 3 g
+  ( 1<<LINE_B ), // 1
+  ( 1<<LINE_A ), // 2
+  ( 1<<LINE_E ), // 3
+  ( 1<<LINE_D ), // 4
+  ( 1<<LINE_C ), // 5
   
-  ( 1<<LINE_B ), // 4 b
-  ( 1<<LINE_A ), // 5 b
-  ( 1<<LINE_E ), // 1 b
-  ( 1<<LINE_D ), // 2 b
-  ( 1<<LINE_C ), // 3 b
+  ( 1<<LINE_B ), // 1
+  ( 1<<LINE_A ), // 2
+  ( 1<<LINE_E ), // 3
+  ( 1<<LINE_D ), // 4
+  ( 1<<LINE_C ), // 5
 };
 
 void light_led(uint8_t led_num) { //led_num must be from 0 to 19
