@@ -32,22 +32,79 @@
 
 #define DEPTH 3
 
+#define HUE_DEBUG 0
+#define DRAW_DEBUG 0
+
 uint8_t led_grid[15] = {
-  000 , 000 , 000 , 000 , 000 , // R
-  000 , 000 , 000 , 000 , 000 , // G
-  000 , 000 , 000 , 000 , 000  // B
+  000 , 000 , 000 , 000 , 000 , // R  0  1  2  3  4
+  000 , 000 , 000 , 000 , 000 , // G  5  6  7  8  9
+  000 , 000 , 000 , 000 , 000   // B 10 11 12 13 14
 };
 
 void setup() {
-  Serial.begin(115200);
-  randomSeed(analogRead(A0));
+  // Try and set the random seed more randomly.  Alternate solutions involve
+  // using the eeprom and writing the last seed there
+
+  uint16_t seed=0;
+  uint8_t count=32;
+  while (--count) {
+    seed = (seed<<1) | (analogRead(A1)&1);
+  }
+  randomSeed(seed);
 }
 
 void loop() {
   RandHueWalk(run_time,millis()); // 1:1 space to LED, fast progression
 }
 
-// rotate 5 random color distances around the ring.
+// definitely a work in progress. Maybe change the led_dir to a velocity within
+// that color channel, so red rotates 3 times faster than blue, and green rotates
+// twice as fast as blue.  At every loop, change the velocity by +_ rand within
+// reasonable range.
+
+void MultiPrimary(uint16_t time, uint32_t start_time) {
+  led_grid[0] = 32; 
+  led_grid[1] = 64; 
+  led_grid[2] = 127; 
+  led_grid[3] = 128; 
+  led_grid[4] = 0;
+  led_grid[5] = 32; 
+  led_grid[6] = 64; 
+  led_grid[7] = 127; 
+  led_grid[8] = 128; 
+  led_grid[9] = 0;
+  led_grid[10] = 32; 
+  led_grid[11] = 64; 
+  led_grid[12] = 127; 
+  led_grid[13] = 128; 
+  led_grid[14] = 0;
+  
+  int8_t led_dir[] = {-1,-1,-1,1,0,
+		      0,-1,-1,-1,1,
+		      1,0,-1,-1,1};
+  
+  
+  while(1) { 
+    for(uint8_t x = 0; x<15; x++) {
+      led_grid[x] = led_grid[x] + led_dir[x];
+      
+      if((led_grid[x] == 254) && (led_dir[x] == 1)) { 
+	led_dir[x] = -1; 
+      }
+      
+      if((led_grid[x] == 0) && (led_dir[x] != 0)) { 
+	led_dir[x] = 0; 
+	if(x < 13) { led_dir[x+2] = 1; }
+	if(x == 13) { led_dir[0] = 1; } 
+	if(x == 14) { led_dir[1] = 1; }
+      }
+      
+    }
+    draw_for_time(DRAW_TIME);
+  }
+}
+
+// rotate 5 random color distances around the ring. Works quite nicely.  Leans heavily on randomseed being random.
 void RandHueWalk(uint16_t time, uint32_t start_time) {
   uint16_t ledhue[] = {random(360), random(360), random(360), random(360), random(360)};
   while(1) {
@@ -58,8 +115,7 @@ void RandHueWalk(uint16_t time, uint32_t start_time) {
       
       uint16_t hue = ledhue[led]--;
       
-      if(hue == 0) { ledhue[led] = 360; }
-      
+      if(hue == 0) { ledhue[led] = 359; }
       setLedColorHSV(led, hue, 255, 255);
     }
     draw_for_time(DRAW_TIME); // this gets called 5 times, once per LED.
@@ -133,12 +189,14 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t val) {
   b = b>>DEPTH;
 
   // Output the hues on each LED...
-  Serial.print(p);
-  Serial.print("=");
-  Serial.print(hue); 
-  Serial.print(" ");
-  if(p == 4) {
-    Serial.println();
+  if(HUE_DEBUG == 1) {
+    Serial.print(p);
+    Serial.print("=");
+    Serial.print(hue); 
+    Serial.print(" ");
+    if(p == 4) {
+      Serial.println();
+    }
   }
 
   set_led_rgb(p,r,g,b);
@@ -219,9 +277,17 @@ void leds_off() {
 void draw_frame(void){
   uint16_t b;
   uint8_t led;
+
   // giving the loop a bit of breathing room seems to prevent the last LED from flickering.  Probably optimizes into oblivion anyway.
-  for ( led=0; led<=15; led++ ) { 
-    
+
+  for ( led=0; led<15; led++ ) { 
+    if(DRAW_DEBUG == 1) {
+      Serial.print(led); Serial.print(":"); Serial.print(led_grid[led]); Serial.print(" ");
+      if((led == 4) || (led == 9) || (led == 14)) {
+	Serial.println();
+      }
+    }
+
     for( b=0; b<led_grid[led]; b++) {
       light_led(led);
     }
@@ -235,3 +301,29 @@ void draw_frame(void){
   }
 }
 
+
+void quickSort(int arr[], int left, int right) {
+  int i = left, j = right;
+  int tmp;
+  int pivot = arr[(left + right) / 2];
+  
+  /* partition */
+  while (i <= j) {
+    while (arr[i] < pivot)
+      i++;
+    while (arr[j] > pivot)
+      j--;
+    if (i <= j) {
+      tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+      i++;
+      j--;
+    }
+  }
+  /* recursion */
+  if (left < j)
+    quickSort(arr, left, j);
+  if (i < right)
+    quickSort(arr, i, right);
+}
