@@ -32,9 +32,9 @@
 
 #define DEPTH 3
 
-#define HUE_DEBUG 1
+#define HUE_DEBUG 0
 #define DRAW_DEBUG 0
-#define MODE_DEBUG 1
+#define MODE_DEBUG 0
 
 uint8_t led_grid[15] = {
   000 , 000 , 000 , 000 , 000 , // R  0  1  2  3  4
@@ -59,7 +59,13 @@ void setup() {
 }
 
 void loop() {
-  RandHueWalk(run_time,millis()); // 1:1 space to LED, fast progression
+  //  RandHueWalk(run_time,millis()); // works great
+  //  BiColorWalk(run_time, millis(), 0, 120); // red to green, works great
+  //  BiColorWalk(run_time, millis(), 120, 240); // green to blue, works great
+  //  BiColorWalk(run_time, millis(), 240, 359); // blue to red, works great - setting endhue to 0 makes it a very wiiiide walk.
+  uint16_t starthue = random(360);
+  uint16_t endhue = starthue + 120;
+  BiColorWalk(run_time, millis(), starthue, endhue); // bounce between two randoms, seems to work.
 }
 
 // definitely a work in progress. Maybe change the led_dir to a velocity within
@@ -127,12 +133,35 @@ void RandHueWalk(uint16_t time, uint32_t start_time) {
   }
 }
 
+/* Additional ideas:
+1) Consider hitting endhue, then desaturating to white and ending up at the starthue.
+2) Maybe put all 5 LEDs on slightly different hues within the same start/endhue progression, then larson the colors back and forth?
+*/
+
+void BiColorWalk(uint16_t time, uint32_t start_time, uint16_t starthue, uint16_t endhue) {
+  uint16_t curhue = starthue;
+  int8_t curdir = 1;
+  while(1) {
+    if(millis() >= (start_time + (time * time_multiplier))) { break; }
+
+    curhue += curdir;
+    if(curhue == endhue) { curdir = -1; }
+    if(curhue == starthue) { curdir = 1; }
+
+    for(uint8_t led = 0; led < 5; led++) {
+      setLedColorHSV(led, curhue, 255, 255);
+    }
+    draw_for_time(DRAW_TIME * 5);
+  }
+}
+  
+  
 
 /*
 Inputs:
   p : LED to set
   immediate : Whether the change should go to led_grid or led_grid_next
-  hue : 0-359 - color
+  hue : 0-359 - color: 0 = red, 120 = green, 240 = blue
   sat : 0-255 - how saturated should it be? 0=white, 255=full color
   val : 0-255 - how bright should it be? 0=off, 255=full bright
 */
