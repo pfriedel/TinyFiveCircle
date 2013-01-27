@@ -32,8 +32,9 @@
 
 #define DEPTH 3
 
-#define HUE_DEBUG 0
+#define HUE_DEBUG 1
 #define DRAW_DEBUG 0
+#define MODE_DEBUG 1
 
 uint8_t led_grid[15] = {
   000 , 000 , 000 , 000 , 000 , // R  0  1  2  3  4
@@ -42,6 +43,10 @@ uint8_t led_grid[15] = {
 };
 
 void setup() {
+  if(( HUE_DEBUG == 1 ) || ( DRAW_DEBUG == 1 ) || ( MODE_DEBUG == 1 )) {
+    Serial.begin(115200);
+  }
+
   // Try and set the random seed more randomly.  Alternate solutions involve
   // using the eeprom and writing the last seed there
 
@@ -127,12 +132,12 @@ void RandHueWalk(uint16_t time, uint32_t start_time) {
 Inputs:
   p : LED to set
   immediate : Whether the change should go to led_grid or led_grid_next
-  hue : 0-360 - color
+  hue : 0-359 - color
   sat : 0-255 - how saturated should it be? 0=white, 255=full color
   val : 0-255 - how bright should it be? 0=off, 255=full bright
 */
 void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t val) {
-  while (hue > 360) hue -= 361;
+  while (hue > 359) hue -= 360;
   while (hue < 0) hue += 361;
   
   int r, g, b, base;
