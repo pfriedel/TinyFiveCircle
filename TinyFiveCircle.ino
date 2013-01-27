@@ -440,7 +440,7 @@ const byte dim_curve[] = {
 Inputs:
   p : LED to set
   immediate : Whether the change should go to led_grid or led_grid_next
-  hue : 0-360 - color
+  hue : 0-359 - color
   sat : 0-255 - how saturated should it be? 0=white, 255=full color
   val : 0-255 - how bright should it be? 0=off, 255=full bright
 */
@@ -454,7 +454,7 @@ void setLedColorHSV(uint8_t p, int16_t hue, int16_t sat, int16_t val) {
     sat = 255-dim_curve[255-sat];
   */
 
-  while (hue > 360) hue -= 361;
+  while (hue > 359) hue -= 360;
   while (hue < 0) hue += 361;
 
   int r, g, b, base;
