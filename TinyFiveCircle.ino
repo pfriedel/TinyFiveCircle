@@ -44,7 +44,7 @@ Future modes:
 #include <EEPROM.h>
 
 // How many modes do we want to go through?
-#define MAX_MODE 9
+#define MAX_MODE 14
 // How long should I draw each color on each LED?
 #define DRAW_TIME 25
 
@@ -76,7 +76,7 @@ Future modes:
 
 // The build uses 1 for the PTH versions and 3 for the SMD displays.
 
-#define DEPTH 1
+#define DEPTH 3
 
 byte __attribute__ ((section (".noinit"))) last_mode;
 
@@ -150,15 +150,35 @@ void loop() {
     RandomColorRandomPosition(run_time,millis());
     break;
   case 6:
+    RandHueWalk(run_time,millis()); // It's a lot like the prior mode, but with color shifting
+    break;
+  case 7:
     SBWalk(run_time,millis(),1,1); // Slow progression through hues modifying brightness
     break; 
-  case 7:
+  case 8:
     SBWalk(run_time,millis(),4,1); // fast progression through hues modifying brightness
     break;
-  case 8:
-    PrimaryColors(run_time,millis());
-    break;
   case 9:
+    PrimaryColors(run_time,millis()); // just a bulb check, to be honest.
+    break;
+    // blue modes
+  case 10:
+    BiColorWalk(run_time, millis(), 0, 120); // red to green, works great
+    break;
+  case 11:
+    BiColorWalk(run_time, millis(), 120, 240); // green to blue, works great
+    break;
+  case 12:
+    BiColorWalk(run_time, millis(), 240, 359); // blue to red, works great - setting endhue to 0 makes it a very wiiiide walk.
+    break;
+  case 13:
+    {
+      uint16_t starthue = random(360);
+      uint16_t endhue = starthue + 120;
+      BiColorWalk(run_time, millis(), starthue, endhue);
+      break;
+    }
+  case 14:
     AllRand();
     break;
   }
@@ -167,12 +187,13 @@ void loop() {
 
 void AllRand(void) {
   uint8_t allrand_time = 5;
+  // Clear the display so it doesn't have any cruft left over from the prior mode.
   while(1) {
     for(int x = 0; x<=15; x++) {
       led_grid[x] = 0;
     }
     
-    int randmode = random(8);
+    int randmode = random(14); // the 15th mode would be itself.
     
     switch(randmode) {
       // red modes
@@ -204,7 +225,26 @@ void AllRand(void) {
     case 8:
       PrimaryColors(allrand_time,millis());
       break;
-      
+    case 9:
+      RandHueWalk(allrand_time,millis());
+      break;
+      // blue modes
+    case 10:
+      BiColorWalk(allrand_time, millis(), 0, 120); // red to green, works great
+      break;
+    case 11:
+      BiColorWalk(allrand_time, millis(), 120, 240); // green to blue, works great
+      break;
+    case 12:
+      BiColorWalk(allrand_time, millis(), 240, 359); // blue to red, works great - setting endhue to 0 makes it a very wiiiide walk.
+      break;
+    case 13:
+      {
+	uint16_t starthue = random(360);
+	uint16_t endhue = starthue + 120;
+	BiColorWalk(allrand_time, millis(), starthue, endhue);
+	break;
+      }
     }
   }
 }
@@ -416,6 +456,46 @@ void PrimaryColors(uint16_t time, uint32_t start_time) {
   }
 }
 
+// rotate 5 random color distances around the ring. Works quite nicely.  Leans heavily on randomseed being random.
+void RandHueWalk(uint16_t time, uint32_t start_time) {
+  uint16_t ledhue[] = {random(360), random(360), random(360), random(360), random(360)};
+  while(1) {
+    
+    if(millis() >= (start_time + (time * time_multiplier))) { break; }
+    
+    for(uint8_t led = 0; led<5; led++) {
+      
+      uint16_t hue = ledhue[led]--;
+      
+      if(hue == 0) { ledhue[led] = 359; }
+      setLedColorHSV(led, hue, 255, 255);
+    }
+    draw_for_time(DRAW_TIME); // this gets called 5 times, once per LED.
+  }
+}
+
+/* Additional ideas:
+1) Consider hitting endhue, then desaturating to white and ending up at the starthue.
+2) Maybe put all 5 LEDs on slightly different hues within the same start/endhue progression, then larson the colors back and forth?
+*/
+
+void BiColorWalk(uint16_t time, uint32_t start_time, uint16_t starthue, uint16_t endhue) {
+  uint16_t curhue = starthue;
+  int8_t curdir = 1;
+  while(1) {
+    if(millis() >= (start_time + (time * time_multiplier))) { break; }
+
+    curhue += curdir;
+    if(curhue == endhue) { curdir = -1; }
+    if(curhue == starthue) { curdir = 1; }
+
+    for(uint8_t led = 0; led < 5; led++) {
+      setLedColorHSV(led, curhue, 255, 255);
+    }
+    draw_for_time(DRAW_TIME * 3);
+  }
+}
+  
 const byte dim_curve[] = {
   0,   1,   1,   2,   2,   2,   2,   2,   2,   3,   3,   3,   3,   3,   3,   3,
   3,   3,   3,   3,   3,   3,   3,   4,   4,   4,   4,   4,   4,   4,   4,   4,
