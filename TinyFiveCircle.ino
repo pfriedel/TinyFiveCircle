@@ -667,19 +667,27 @@ void draw_frame(void){
   uint16_t b;
   uint8_t led;
   // giving the loop a bit of breathing room seems to prevent the last LED from flickering.  Probably optimizes into oblivion anyway.
-  for ( led=0; led<=15; led++ ) { 
+  for ( led=0; led<15; led++ ) { 
     // software PWM 
-    // input range is 0 (off) to 255>>DEPTH (128/64/32/etc) (fully on)
+    // input range is 0 (off) to 255>>DEPTH (127/63/31/etc) (fully on)
 
     // Light the LED in proportion to the value in the led_grid array
     for( b=0; b < led_grid[led]; b++ ) {
       light_led(led);
     }
-    // and turn the LEDs off for the amount of time in the led_grid array between LED brightness and 255>>DEPTH.
-    for( b=led_grid[led]; b < ((1<<(8 - DEPTH))-1); b++ ) {
+
+    // and turn the LEDs off for the amount of time in the led_grid array
+    // between LED brightness and 255>>DEPTH.
+    for( b=led_grid[led]; b < 255>>DEPTH; b++ ) {
       leds_off();
     }
   }
+
+  // Force the LEDs off - otherwise if the last LED on (led 14) was at full
+  // brightness at the end of the softPWM, it would never actually get turned
+  // off and would flicker. (mostly visible in the SB_Walk modes, if you want to
+  // test it)
+  leds_off();
 }
 
 void EEReadSettings (void) {  // TODO: Detect ANY bad values, not just 255.
