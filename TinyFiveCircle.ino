@@ -76,7 +76,7 @@ Future modes:
 
 // The build uses 1 for the PTH versions and 3 for the SMD displays.
 
-#define DEPTH 3
+#define DEPTH 2
 
 byte __attribute__ ((section (".noinit"))) last_mode;
 
@@ -223,22 +223,19 @@ void AllRand(void) {
       SBWalk(allrand_time,millis(),4,1); // fast progression through hues modifying brightness
       break;
     case 8:
-      PrimaryColors(allrand_time,millis());
-      break;
-    case 9:
       RandHueWalk(allrand_time,millis());
       break;
       // blue modes
-    case 10:
+    case 9:
       BiColorWalk(allrand_time, millis(), 0, 120); // red to green, works great
       break;
-    case 11:
+    case 10:
       BiColorWalk(allrand_time, millis(), 120, 240); // green to blue, works great
       break;
-    case 12:
+    case 11:
       BiColorWalk(allrand_time, millis(), 240, 359); // blue to red, works great - setting endhue to 0 makes it a very wiiiide walk.
       break;
-    case 13:
+    case 12:
       {
 	uint16_t starthue = random(360);
 	uint16_t endhue = starthue + 120;
